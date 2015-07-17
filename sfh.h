@@ -1,6 +1,8 @@
 #ifndef SFH_H
 #define SFH_H
 
+#define _POSIX_SOURCE
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
@@ -8,10 +10,13 @@
 #include <unistd.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include <errno.h>
+#include <signal.h>
 
 #define SERVER_PORT 8080
 #define SERVER_BACKLOG 5
 #define PACKET_SIZE 2048
+#define FILE_SIZE_LIMIT 8192
 
 #define MIN(X, Y) (X < Y ? X : Y)
 
@@ -32,9 +37,7 @@ int socket_initialize();
 
 int socket_nextclient();
 
-int socket_nextclient();
-
-void socket_close();
+void socket_terminate();
 
 char *socket_clientaddr();
 

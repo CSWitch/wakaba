@@ -1,6 +1,15 @@
 #include "sfh.h"
 
-//TODO: Catch SIGTERM.
+void cleanup()
+{
+	socket_terminate();
+}
+
+void terminate()
+{
+	puts("Exiting gracefully");
+	exit(0);
+}
 
 int main()
 {
@@ -8,12 +17,20 @@ int main()
 		puts("Failed to initialize server");
 		return 1;
 	}
+	atexit(cleanup);
+
+	struct sigaction sa;
+	memset(&sa, 0, sizeof(sa));
+	sa.sa_handler = terminate;
+	sigaction(SIGTERM, &sa, 0);
+	sigaction(SIGINT, &sa, 0);
 
 	int client_fd;
 	struct request r;
 
 	char err_invreq[] = "Invalid request\n";
 	char err_toolarge[] = "File too large\n";
+	char err_nodata[] = "No data received\n";
 
 	while(1){
 		client_fd = socket_nextclient();
@@ -26,12 +43,18 @@ int main()
 		http_process_request(client_fd, &r);
 
 		if (r.type == R_INVALID){
-			socket_puts(err_invreq);
-			continue;
-		}
-
-		if (r.len > 8192){
-			socket_puts(err_toolarge);
+			switch(errno){
+				case EFBIG:
+					socket_puts(err_toolarge);
+					break;
+				case ENODATA:
+					socket_puts(err_nodata);
+					break;
+				case EINVAL:
+				default:
+					socket_puts(err_invreq);
+					break;
+			}
 			continue;
 		}
 
@@ -44,6 +67,5 @@ int main()
 			free(r.data);
 	}
 
-	socket_close();
-	return 0;
+	exit(0);
 }

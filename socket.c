@@ -34,6 +34,7 @@ int socket_initialize()
 
 int socket_nextclient()
 {
+	shutdown(client_fd, SHUT_RDWR);
 	close(client_fd);
 
 	client_fd = accept(server_fd, (struct sockaddr *)  &client_addr, &client_len);
@@ -60,4 +61,30 @@ char *socket_clientaddr()
 void socket_puts(char *str)
 {
 	write(client_fd, str, strlen(str));
+}
+
+size_t socket_read(int fd, char *buf, size_t len)
+{
+	char *bufp = buf;
+	char packet[PACKET_SIZE];
+	size_t packetsize = 0;
+
+	while ((size_t) (bufp - buf) < len && (packetsize = read(fd, packet, PACKET_SIZE)) != 0){
+		memcpy(bufp, packet, packetsize);
+		bufp += packetsize;
+	}
+
+	return bufp - buf;
+}
+
+void socket_write(int fd, char *buf, ssize_t len)
+{
+	size_t packetsize = 0;
+
+	while (len > 0){
+		packetsize = MIN(len, PACKET_SIZE);
+		write(fd, buf, packetsize);
+		buf += packetsize;
+		len -= packetsize;
+	}
 }

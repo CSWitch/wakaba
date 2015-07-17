@@ -11,6 +11,7 @@
 
 #define SERVER_PORT 8080
 #define SERVER_BACKLOG 5
+#define PACKET_SIZE 2048
 
 #define MIN(X, Y) (X < Y ? X : Y)
 
@@ -24,7 +25,6 @@ struct request{
 	enum request_type type;
 	char filename[128];
 	size_t len;
-	char boundary[64];
 	char *data;
 };
 
@@ -39,5 +39,30 @@ void socket_close();
 char *socket_clientaddr();
 
 void socket_puts(char *str);
+
+size_t socket_read(int fd, char *buf, size_t len);
+
+void socket_write(int fd, char *buf, ssize_t len);
+
+void http_process_request(int fd, struct request *r);
+
+static inline void *memmem(void *haystack, size_t haystack_len, void *needle, size_t needle_len)
+{
+	size_t match;
+
+	for (size_t h_pos = 0; h_pos < haystack_len; h_pos++){
+		match = 0;
+		for (size_t n_pos = 0; n_pos < needle_len; n_pos++){
+			if ((uint8_t) ((uint8_t *) haystack)[h_pos + n_pos] == (uint8_t) ((uint8_t *) needle)[n_pos]){
+				match++;
+			}
+		}
+		if (match >= needle_len){
+			return haystack + h_pos;
+		}
+	}
+
+	return 0;
+}
 
 #endif

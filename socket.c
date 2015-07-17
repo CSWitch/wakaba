@@ -43,10 +43,8 @@ int socket_nextclient()
 
 void socket_terminate()
 {
-	if (client_fd)
-		close(client_fd);
-	if (server_fd)
-		close(server_fd);
+	close(client_fd);
+	close(server_fd);
 }
 
 char *socket_clientaddr()
@@ -57,4 +55,9 @@ char *socket_clientaddr()
 	inet_ntop(AF_INET, &addr, str_client_addr, 16);
 
 	return str_client_addr;
+}
+
+void socket_puts(char *str)
+{
+	write(client_fd, str, strlen(str));
 }

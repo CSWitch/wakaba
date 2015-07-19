@@ -61,7 +61,7 @@ int main()
 		if (r.type == R_POST)
 			socket_write(client_fd, r.data, r.len);
 		else if (r.type == R_GET)
-			socket_puts("Yes, i see you there\n");
+			socket_puts(r.filename);
 
 		if (r.data)
 			free(r.data);

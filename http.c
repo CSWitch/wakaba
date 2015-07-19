@@ -35,9 +35,7 @@ size_t http_get_header(char *buf, char *header, size_t n)
 
 void http_process_request(int fd, struct request *r)
 {
-	char header[512];
 	char *buf = calloc(512, 1);
-	size_t header_len;
 	size_t buf_len = 0;
 
 	buf_len = read(fd, buf, 512);
@@ -48,7 +46,6 @@ void http_process_request(int fd, struct request *r)
 
 	if (strstr(buf, "GET") == buf){
 		r->type = R_GET;
-		free(buf);
 	}else if (strstr(buf, "POST") == buf){
 		r->type = R_POST;
 	}else{
@@ -57,6 +54,11 @@ void http_process_request(int fd, struct request *r)
 	}
 
 	if (r->type == R_POST){
+		char header[512];
+		char boundary[256];
+		size_t header_len;
+		size_t content_length; //Length as reported by HTTP header.
+
 		//Some (retarded) browsers (like Firefox) like to send the body in the same packet as the header, so:
 		//Move header into it's own buffer, and move body to front of buf.
 		memset(header, 0, 512);
@@ -69,7 +71,7 @@ void http_process_request(int fd, struct request *r)
 		memmove(buf, buf + header_len, buf_len);
 
 		//Make sure header sends Content-Length.
-		size_t content_length = strtol(http_get_field(header, "Content-Length: "), 0, 10);
+		content_length = strtol(http_get_field(header, "Content-Length: "), 0, 10);
 		if (!content_length){
 			errno = EINVAL;
 			goto ERROR;
@@ -79,6 +81,18 @@ void http_process_request(int fd, struct request *r)
 			errno = EFBIG;
 			goto ERROR;
 		}
+
+		//Make sure encoding is multipart/form-data and extract the boundary.
+		size_t b_len = 0;
+		char *bp = http_get_field(buf, "Content-Type: multipart/form-data; boundary=");
+		if (!bp){
+			errno = EINVAL;
+			goto ERROR;
+		}
+		bp = strchr(bp, '=') + 1;
+		b_len = MIN(strchr(bp, '\r') - bp, 255);
+		strncpy(boundary, bp, b_len);
+		boundary[b_len] = 0;
 
 		//Expand buf and read in rest of the body.
 		buf = realloc(buf, content_length);
@@ -90,13 +104,55 @@ void http_process_request(int fd, struct request *r)
 			goto ERROR;
 		}
 
+		//Form parsing starts here.
+		char *start = 0;
+		char *end = 0;
+		size_t file_len = 0;
+
+		//Skip useless header information.
+		start = strstr(buf, "\r\n\r\n");
+		if (!start){
+			errno = EINVAL;
+			goto ERROR;
+		}
+		start += 4;
+
+		end = memmem(start, buf_len - (start - buf), boundary, strlen(boundary));
+		if (!end){
+			errno = EINVAL;
+			goto ERROR;
+		}
+		end -= 4;
+		file_len = end - start;
+
+		//Let's reuse buf by memmove'ing the file data to the beginning.
+		memmove(buf, start, file_len);
+		buf[file_len] = 0;
+		buf = realloc(buf, ++file_len);
+		buf_len = file_len;
+
 		r->len = buf_len;
 		r->data = buf;
-
-		//TODO: Parse form and get file data.
-
 	}else if (r->type == R_GET){
-		//TODO: Grab filename.
+		//Extract filename.
+		char *filename = strchr(buf, '/');
+		size_t fn_len = 0;
+		if (!filename || (filename - buf) > 4){
+			errno = EINVAL;
+			goto ERROR;
+		}
+		filename++;
+
+		fn_len = MIN(strchr(filename, ' ') - filename, 127);
+		strncpy(r->filename, filename, fn_len);
+		r->filename[fn_len] = 0;
+		//Protect against common exploits.
+		if (!r->filename[0] || strchr(r->filename, '/') || strstr(r->filename, "..")){
+			errno = EINVAL;
+			goto ERROR;
+		}
+
+		free(buf);
 	}
 
 	return;

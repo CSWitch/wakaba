@@ -67,24 +67,29 @@ int main()
 
 			snprintf(buf, 128, "http://" DOMAIN_NAME "/%llx\n", id);
 			socket_puts(buf);
+
+			free(r.data);
 		}else if (r.type == R_GET){
-			struct file_entry *fe = database_getfile(r.filename);
+			char *data = 0;
+			size_t len = database_getfile(r.filename, &data);
 			char http_header[2048];
 
-			if (!fe){
+			if (!data){
 				socket_puts(err_notfound);
 				continue;
 			}
 
 			printf("%s requested file %s\n", socket_clientaddr(), r.filename);
 
-			snprintf(http_header, 2048, "HTTP/1.0 200 OK\r\nContent-Length: %zu\r\nExpires: Sun, 17-jan-2038 19:14:07 GMT\r\n\r\n", fe->len);
+			snprintf(http_header, 2048, "HTTP/1.0 200 OK\r\nContent-Length: %zu\r\nExpires: Sun, 17-jan-2038 19:14:07 GMT\r\n\r\n", len);
 			socket_puts(http_header);
-			socket_write(client_fd, fe->data, fe->len);
+			socket_write(client_fd, data, len);
+
+			free(data);
 		}else if (r.type == R_CACHED){
 			char *http_header = "HTTP/1.0 304 Not Modified\r\n\r\n";
 
-			if (!database_getfile(r.filename)){
+			if (!database_getfile(r.filename, 0)){
 				socket_puts(err_notfound);
 				continue;
 			}

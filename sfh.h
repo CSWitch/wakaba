@@ -18,6 +18,7 @@
 #define PACKET_SIZE 2048
 #define FILE_SIZE_LIMIT 60000000 //60 MB
 #define DOMAIN_NAME "wakaba.dhcp.io"
+#define DATABASE_DIR "/var/lib/wakaba/database"
 
 #define MIN(X, Y) (X < Y ? X : Y)
 
@@ -41,12 +42,6 @@ struct lnode{
 	struct lnode *prev;
 };
 
-struct file_entry{
-	char *data;
-	size_t len;
-	unsigned long long id;
-};
-
 int socket_initialize();
 
 int socket_nextclient();
@@ -65,7 +60,7 @@ void http_process_request(int fd, struct request *r);
 
 unsigned long long database_push(char *data, size_t len);
 
-struct file_entry *database_getfile(char *name);
+size_t database_getfile(char *name, char **datap);
 
 void database_terminate();
 

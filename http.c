@@ -35,14 +35,15 @@ size_t http_get_header(char *buf, char *header, size_t n)
 
 void http_process_request(int fd, struct request *r)
 {
-	char *buf = calloc(512, 1);
+	char *buf = calloc(2048, 1);
 	size_t buf_len = 0;
 
-	buf_len = read(fd, buf, 512);
+	buf_len = read(fd, buf, 2047);
 	if (!buf_len){
 		errno = ENODATA;
 		goto ERROR;
 	}
+	buf[buf_len] = 0;
 
 	if (strstr(buf, "GET") == buf){
 		r->type = R_GET;
@@ -54,15 +55,15 @@ void http_process_request(int fd, struct request *r)
 	}
 
 	if (r->type == R_POST){
-		char header[512];
+		char header[2048];
 		char boundary[256];
 		size_t header_len;
 		size_t content_length; //Length as reported by HTTP header.
 
 		//Some (retarded) browsers (like Firefox) like to send the body in the same packet as the header, so:
 		//Move header into it's own buffer, and move body to front of buf.
-		memset(header, 0, 512);
-		header_len = http_get_header(buf, header, 512);
+		memset(header, 0, 2048);
+		header_len = http_get_header(buf, header, 2048);
 		if (!header_len){
 			errno = EINVAL;
 			goto ERROR;
@@ -94,6 +95,10 @@ void http_process_request(int fd, struct request *r)
 		strncpy(boundary, bp, b_len);
 		boundary[b_len] = 0;
 
+		//Send 100-continue if needed.
+		if (strstr(header, "Expect: 100-continue"))
+			socket_puts("HTTP/1.0 100 Continue\r\n\r\n");
+
 		//Expand buf and read in rest of the body.
 		buf = realloc(buf, content_length);
 		buf_len += socket_read(fd, buf + buf_len, content_length - buf_len);
@@ -109,7 +114,7 @@ void http_process_request(int fd, struct request *r)
 		char *end = 0;
 		size_t file_len = 0;
 
-		//Skip useless header information.
+		//Skip header information.
 		start = strstr(buf, "\r\n\r\n");
 		if (!start){
 			errno = EINVAL;
@@ -127,8 +132,7 @@ void http_process_request(int fd, struct request *r)
 
 		//Let's reuse buf by memmove'ing the file data to the beginning.
 		memmove(buf, start, file_len);
-		buf[file_len] = 0;
-		buf = realloc(buf, ++file_len);
+		buf = realloc(buf, file_len);
 		buf_len = file_len;
 
 		r->len = buf_len;
@@ -151,6 +155,15 @@ void http_process_request(int fd, struct request *r)
 			errno = EINVAL;
 			goto ERROR;
 		}
+
+#ifdef CLIENT_CACHING
+		//Check if the client has already cached this file.
+		if (strstr(buf, "Cache-Control: ")){
+			r->type = R_CACHED;
+			free(buf);
+			return;
+		}
+#endif
 
 		free(buf);
 	}

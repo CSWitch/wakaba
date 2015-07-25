@@ -23,6 +23,9 @@ int socket_initialize()
 	if (server_fd == -1)
 		return 1;
 
+	int optval = 1;
+	setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
+
 	if (bind(server_fd, (struct sockaddr *) &server_addr, sizeof(server_addr)) == -1)
 		return 1;
 
@@ -83,7 +86,8 @@ void socket_write(int fd, char *buf, ssize_t len)
 
 	while (len > 0){
 		packetsize = MIN(len, PACKET_SIZE);
-		write(fd, buf, packetsize);
+		if (send(fd, buf, packetsize, MSG_NOSIGNAL) == -1)
+			break;
 		buf += packetsize;
 		len -= packetsize;
 	}

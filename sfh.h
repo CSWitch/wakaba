@@ -12,10 +12,11 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <signal.h>
+#include <pthread.h>
 
 #define SERVER_PORT 8080
-#define SERVER_BACKLOG 5
-#define PACKET_SIZE 2048
+#define SERVER_BACKLOG 10
+#define PACKET_SIZE 8192
 #define FILE_SIZE_LIMIT 60000000 //60 MB
 #define DOMAIN_NAME "wakaba.dhcp.io"
 #define DATABASE_DIR "/var/lib/wakaba/database"
@@ -42,15 +43,18 @@ struct lnode{
 	struct lnode *prev;
 };
 
+struct client_ctx{
+	int fd;
+	char str_addr[16];
+};
+
 int socket_initialize();
 
-int socket_nextclient();
+struct client_ctx *socket_nextclient();
 
 void socket_terminate();
 
-char *socket_clientaddr();
-
-void socket_puts(char *str);
+void socket_puts(int fd, char *str);
 
 size_t socket_read(int fd, char *buf, size_t len);
 

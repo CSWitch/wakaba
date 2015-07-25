@@ -5,6 +5,7 @@ struct file_entry{
 	unsigned long long id;
 };
 
+pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 unsigned long long next_id;
 struct lnode *file_list;
 
@@ -45,38 +46,52 @@ unsigned long long database_push(char *data, size_t len)
 	struct lnode *n = calloc(sizeof(struct lnode), 1);
 	struct file_entry *fe = calloc(sizeof(struct file_entry), 1);
 
+	pthread_mutex_lock(&lock);
+
 	fe->len = len;
 	fe->id = next_id++;
-
-	database_write(fe, data);
-
 	n->data = fe;
 	file_list = lnode_push(file_list, n);
+
+	pthread_mutex_unlock(&lock);
+
+	database_write(fe, data);
 
 	return fe->id;
 }
 
 size_t database_getfile(char *name, char **datap)
 {
+	struct file_entry *entry = 0;
 	unsigned long long id = strtoull(name, 0, 16);
 	if (!id && errno == EINVAL){
 		errno = 0;
 		return 0;
 	}
 
+	pthread_mutex_lock(&lock);
+
 	for (struct lnode *cur = file_list; cur; cur = cur->next){
 		struct file_entry *fe = cur->data;
 
 		if (fe->id == id){
-			char *data = database_read(fe);
-
-			if (!data)
-				return 0;
-
-			if (datap)
-				*datap = data;
-			return fe->len;
+			entry = fe;
+			break;
 		}
+	}
+
+	pthread_mutex_unlock(&lock);
+
+	if (entry){
+		char *data = database_read(entry);
+
+		if (!data)
+			return 0;
+
+		if (datap)
+			*datap = data;
+
+		return entry->len;
 	}
 
 	return 0;

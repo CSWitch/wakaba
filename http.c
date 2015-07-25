@@ -97,7 +97,7 @@ void http_process_request(int fd, struct request *r)
 
 		//Send 100-continue if needed.
 		if (strstr(header, "Expect: 100-continue"))
-			socket_puts("HTTP/1.0 100 Continue\r\n\r\n");
+			socket_puts(fd, "HTTP/1.0 100 Continue\r\n\r\n");
 
 		//Expand buf and read in rest of the body.
 		buf = realloc(buf, content_length);
@@ -158,11 +158,8 @@ void http_process_request(int fd, struct request *r)
 
 #ifdef CLIENT_CACHING
 		//Check if the client has already cached this file.
-		if (strstr(buf, "Cache-Control: ")){
+		if (strstr(buf, "Cache-Control: "))
 			r->type = R_CACHED;
-			free(buf);
-			return;
-		}
 #endif
 
 		free(buf);

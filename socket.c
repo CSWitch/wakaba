@@ -1,19 +1,15 @@
 #include "sfh.h"
 
 int server_fd;
-int client_fd;
-
 struct sockaddr_in server_addr;
+
+int client_fd;
 struct sockaddr_in client_addr;
-
-socklen_t client_len;
-
-char str_client_addr[16];
+socklen_t client_len = sizeof(struct sockaddr_in);
 
 int socket_initialize()
 {
 	memset(&server_addr, 0, sizeof(server_addr));
-	client_len = sizeof(client_len);
 
 	server_addr.sin_family = AF_INET;
 	server_addr.sin_addr.s_addr = INADDR_ANY;
@@ -35,35 +31,37 @@ int socket_initialize()
 	return 0;
 }
 
-int socket_nextclient()
+void socket_clientaddr(struct client_ctx *cc)
 {
-	shutdown(client_fd, SHUT_RDWR);
-	close(client_fd);
+	uint32_t addr = client_addr.sin_addr.s_addr;
+
+	memset(cc->str_addr, 0, 16);
+	inet_ntop(AF_INET, &addr, cc->str_addr, 16);
+}
+
+struct client_ctx *socket_nextclient()
+{
+	struct client_ctx *cc;
 
 	client_fd = accept(server_fd, (struct sockaddr *)  &client_addr, &client_len);
+	if (client_fd == -1)
+		return 0;
 
-	return client_fd;
+	cc = calloc(sizeof(*cc), 1);
+	cc->fd = client_fd;
+	socket_clientaddr(cc);
+
+	return cc;
 }
 
 void socket_terminate()
 {
-	close(client_fd);
 	close(server_fd);
 }
 
-char *socket_clientaddr()
+void socket_puts(int fd, char *str)
 {
-	uint32_t addr = client_addr.sin_addr.s_addr;
-
-	memset(str_client_addr, 0, 16);
-	inet_ntop(AF_INET, &addr, str_client_addr, 16);
-
-	return str_client_addr;
-}
-
-void socket_puts(char *str)
-{
-	write(client_fd, str, strlen(str));
+	write(fd, str, strlen(str));
 }
 
 size_t socket_read(int fd, char *buf, size_t len)

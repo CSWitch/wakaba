@@ -1,7 +1,20 @@
 #include "sfh.h"
 
+struct lnode *threads;
+
 void cleanup()
 {
+	struct lnode *cur = threads;
+	while (cur){
+		struct lnode *temp = cur;
+		pthread_t *t = cur->data;
+		cur = cur->next;
+
+		pthread_join(*t, 0);
+		free(t);
+		free(temp);
+	}
+
 	socket_terminate();
 	database_terminate();
 }
@@ -9,7 +22,84 @@ void cleanup()
 void sigterm()
 {
 	puts("Exiting gracefully");
-	exit(0);
+	pthread_exit(0);
+}
+
+void *process_request(void *p)
+{
+	char *err_invreq = "Invalid request\n";
+	char *err_toolarge = "File too large\n";
+	char *err_nodata = "No data received\n";
+	char *err_notfound = "File not found in database\n";
+
+	struct client_ctx *cc = p;
+	int client_fd = cc->fd;
+	struct request r;
+
+	memset(&r, 0, sizeof(r));
+	http_process_request(client_fd, &r);
+
+	if (r.type == R_INVALID){
+		switch(errno){
+			case EFBIG:
+				socket_puts(client_fd, err_toolarge);
+				break;
+			case ENODATA:
+				socket_puts(client_fd, err_nodata);
+				break;
+			case EINVAL:
+			default:
+				socket_puts(client_fd, err_invreq);
+				break;
+		}
+		errno = 0;
+		goto RET;
+	}
+
+	if (r.type == R_POST){
+		unsigned long long id = database_push(r.data, r.len);
+		char buf[128];
+
+		printf("%s uploaded file of %zu bytes (%llx)\n", cc->str_addr, r.len, id);
+
+		snprintf(buf, 128, "http://" DOMAIN_NAME "/%llx\n", id);
+		socket_puts(client_fd, buf);
+
+		free(r.data);
+	}else if (r.type == R_GET){
+		char *data = 0;
+		size_t len = database_getfile(r.filename, &data);
+		char http_header[2048];
+
+		if (!data){
+			socket_puts(client_fd, err_notfound);
+			goto RET;
+		}
+
+		printf("%s requested file %s\n", cc->str_addr, r.filename);
+
+		snprintf(http_header, 2048, "HTTP/1.0 200 OK\r\nContent-Length: %zu\r\nExpires: Sun, 17-jan-2038 19:14:07 GMT\r\n\r\n", len);
+		socket_puts(client_fd, http_header);
+		socket_write(client_fd, data, len);
+
+		free(data);
+	}else if (r.type == R_CACHED){
+		char *http_header = "HTTP/1.0 304 Not Modified\r\n\r\n";
+
+		if (!database_getfile(r.filename, 0)){
+			socket_puts(client_fd, err_notfound);
+			goto RET;
+		}
+
+		socket_puts(client_fd, http_header);
+		printf("%s requested cached file\n", cc->str_addr);
+	}
+
+RET:
+	shutdown(client_fd, SHUT_RDWR);
+	close(client_fd);
+	free(cc);
+	pthread_exit(0);
 }
 
 int main()
@@ -26,78 +116,18 @@ int main()
 	sigaction(SIGTERM, &sa, 0);
 	sigaction(SIGINT, &sa, 0);
 
-	int client_fd;
-	struct request r;
-
-	char *err_invreq = "Invalid request\n";
-	char *err_toolarge = "File too large\n";
-	char *err_nodata = "No data received\n";
-	char *err_notfound = "File not found in database\n";
-
 	while(1){
-		client_fd = socket_nextclient();
-		if (client_fd == -1)
+		struct client_ctx *cc = socket_nextclient();
+		if (!cc)
 			continue;
 
-		memset(&r, 0, sizeof(r));
-		http_process_request(client_fd, &r);
+		struct lnode *n = calloc(sizeof(struct lnode), 1);
+		pthread_t *t = calloc(sizeof(pthread_t), 1);
 
-		if (r.type == R_INVALID){
-			switch(errno){
-				case EFBIG:
-					socket_puts(err_toolarge);
-					break;
-				case ENODATA:
-					socket_puts(err_nodata);
-					break;
-				case EINVAL:
-				default:
-					socket_puts(err_invreq);
-					break;
-			}
-			errno = 0;
-			continue;
-		}
-
-		if (r.type == R_POST){
-			unsigned long long id = database_push(r.data, r.len);
-			char buf[128];
-
-			printf("%s uploaded file of %zu bytes (%llx)\n", socket_clientaddr(), r.len, id);
-
-			snprintf(buf, 128, "http://" DOMAIN_NAME "/%llx\n", id);
-			socket_puts(buf);
-
-			free(r.data);
-		}else if (r.type == R_GET){
-			char *data = 0;
-			size_t len = database_getfile(r.filename, &data);
-			char http_header[2048];
-
-			if (!data){
-				socket_puts(err_notfound);
-				continue;
-			}
-
-			printf("%s requested file %s\n", socket_clientaddr(), r.filename);
-
-			snprintf(http_header, 2048, "HTTP/1.0 200 OK\r\nContent-Length: %zu\r\nExpires: Sun, 17-jan-2038 19:14:07 GMT\r\n\r\n", len);
-			socket_puts(http_header);
-			socket_write(client_fd, data, len);
-
-			free(data);
-		}else if (r.type == R_CACHED){
-			char *http_header = "HTTP/1.0 304 Not Modified\r\n\r\n";
-
-			if (!database_getfile(r.filename, 0)){
-				socket_puts(err_notfound);
-				continue;
-			}
-
-			socket_puts(http_header);
-			printf("%s requested cached file\n", socket_clientaddr());
-		}
+		pthread_create(t, 0, process_request, (void *) cc);
+		n->data = t;
+		threads = lnode_push(threads, n);
 	}
 
-	exit(0);
+	pthread_exit(0);
 }

@@ -27,6 +27,8 @@ void *cleaner()
 			}
 		}
 
+		database_flush();
+
 		pthread_mutex_unlock(&cleaner_lock);
 		sleep(60);
 	}
@@ -146,6 +148,14 @@ int main()
 		puts("Failed to initialize server");
 		return 1;
 	}
+
+	//Shrink user privileges
+	struct passwd *pw = getpwnam(USERNAME);
+	if (setuid(pw->pw_uid) == -1 || setgid(pw->pw_gid == (unsigned) -1)){
+		puts("Failed to set user ID");
+		return 1;
+	}
+
 	atexit(cleanup);
 
 	struct sigaction sa;
@@ -153,6 +163,8 @@ int main()
 	sa.sa_handler = sigterm;
 	sigaction(SIGTERM, &sa, 0);
 	sigaction(SIGINT, &sa, 0);
+
+	database_init();
 
 	pthread_create(&cleaner_thread, 0, cleaner, 0);
 

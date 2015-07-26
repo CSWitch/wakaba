@@ -13,13 +13,16 @@
 #include <errno.h>
 #include <signal.h>
 #include <pthread.h>
+#include <sys/stat.h>
+#include <pwd.h>
 
 #define SERVER_PORT 8080
 #define SERVER_BACKLOG 10
 #define PACKET_SIZE 8192
 #define FILE_SIZE_LIMIT 60000000 //60 MB
 #define DOMAIN_NAME "wakaba.dhcp.io"
-#define DATA_DIR "/var/lib/wakaba"
+#define DATA_DIR "/var/lib/wakaba/"
+#define USERNAME "wakaba"
 
 #define MIN(X, Y) (X < Y ? X : Y)
 
@@ -74,6 +77,10 @@ size_t database_getfile(char *name, char **datap);
 
 void database_terminate();
 
+int database_init();
+
+int database_flush();
+
 static inline struct lnode *lnode_push(struct lnode *head, struct lnode *node)
 {
 	if (head){
@@ -97,6 +104,16 @@ static inline struct lnode *lnode_pop(struct lnode *head)
 		head->next->prev = head->prev;
 
 	return head;
+}
+
+static inline struct lnode *listend(struct lnode *head)
+{
+	struct lnode *cur = head;
+
+	while(cur && cur->next)
+		cur = cur->next;
+
+	return cur;
 }
 
 static inline void *memmem(void *haystack, size_t haystack_len, void *needle, size_t needle_len)

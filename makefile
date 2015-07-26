@@ -10,7 +10,7 @@ release: CFLAGS += -O2
 release: LDFLAGS += -s
 release: sfhd
 
-sfhd: main.o socket.o http.o database.o *.h
+sfhd: main.o socket.o http.o database.o cache.o *.h
 	$(CC) *.o $(CFLAGS) $(LDFLAGS)
 
 main.o: main.c *.h
@@ -24,6 +24,9 @@ http.o: http.c *.h
 
 database.o: database.c *.h
 	$(CC) database.c $(CFLAGS) -c
+
+cache.o: cache.c *.h
+	$(CC) cache.c $(CFLAGS) -c
 
 clean:
 	rm *.o

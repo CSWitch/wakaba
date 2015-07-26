@@ -59,6 +59,8 @@ unsigned long long database_push(char *data, size_t len)
 
 	database_write(fe, data);
 
+	cache_push(data, len, fe->id);
+
 	return fe->id;
 }
 
@@ -69,6 +71,14 @@ size_t database_getfile(char *name, char **datap)
 	if (!id && errno == EINVAL){
 		errno = 0;
 		return 0;
+	}
+
+	//Check the cache first.
+	struct cache_entry *ce = cache_get(id);
+	if (ce){
+		if (datap)
+			*datap = ce->data;
+		return ce->len;
 	}
 
 	pthread_mutex_lock(&lock);
@@ -92,6 +102,10 @@ size_t database_getfile(char *name, char **datap)
 
 		if (datap)
 			*datap = data;
+
+		//Put back in cache.
+		if (!ce)
+			cache_push(data, entry->len, entry->id);
 
 		return entry->len;
 	}

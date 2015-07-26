@@ -28,6 +28,7 @@ void *cleaner()
 		}
 
 		database_flush();
+		cache_prune();
 
 		pthread_mutex_unlock(&cleaner_lock);
 		sleep(60);
@@ -56,6 +57,7 @@ void cleanup()
 
 	socket_terminate();
 	database_terminate();
+	cache_terminate();
 }
 
 void sigterm()
@@ -103,8 +105,6 @@ void *process_request(void *p)
 
 		snprintf(buf, 128, "http://" DOMAIN_NAME "/%llx\n", id);
 		socket_puts(client_fd, buf);
-
-		free(r.data);
 	}else if (r.type == R_GET){
 		char *data = 0;
 		size_t len = database_getfile(r.filename, &data);
@@ -120,8 +120,6 @@ void *process_request(void *p)
 		snprintf(http_header, 2048, "HTTP/1.0 200 OK\r\nContent-Length: %zu\r\nExpires: Sun, 17-jan-2038 19:14:07 GMT\r\n\r\n", len);
 		socket_puts(client_fd, http_header);
 		socket_write(client_fd, data, len);
-
-		free(data);
 	}else if (r.type == R_CACHED){
 		char *http_header = "HTTP/1.0 304 Not Modified\r\n\r\n";
 

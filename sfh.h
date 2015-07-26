@@ -23,6 +23,7 @@
 #define DOMAIN_NAME "wakaba.dhcp.io"
 #define DATA_DIR "/var/lib/wakaba/"
 #define USERNAME "wakaba"
+#define CACHE_SIZE 120000000 //120 MB
 
 #define MIN(X, Y) (X < Y ? X : Y)
 
@@ -57,6 +58,12 @@ struct client_ctx{
 	struct thread_state *ts;
 };
 
+struct cache_entry{
+	char *data;
+	size_t len;
+	unsigned long long id;
+};
+
 int socket_initialize();
 
 struct client_ctx *socket_nextclient();
@@ -80,6 +87,14 @@ void database_terminate();
 int database_init();
 
 int database_flush();
+
+void cache_push(char *data, size_t len, unsigned long long id);
+
+struct cache_entry *cache_get(unsigned long long id);
+
+void cache_terminate();
+
+void cache_prune();
 
 static inline struct lnode *lnode_push(struct lnode *head, struct lnode *node)
 {

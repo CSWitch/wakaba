@@ -1,17 +1,54 @@
 #include "sfh.h"
 
-struct lnode *threads;
+static struct lnode *threads;
+static pthread_t cleaner_thread;
+static pthread_mutex_t cleaner_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t threadlist_lock = PTHREAD_MUTEX_INITIALIZER;
+
+void *cleaner()
+{
+	while(1){
+		pthread_mutex_lock(&cleaner_lock);
+
+		struct lnode *cur = threads;
+		while (cur){
+			struct lnode *temp = cur;
+			struct thread_state *ts = cur->data;
+			cur = cur->next;
+
+			if (ts->terminated){
+				pthread_join(ts->thread, 0);
+				free(ts);
+				pthread_mutex_lock(&threadlist_lock);
+				free(lnode_pop(temp));
+				if (temp == threads)
+					threads = 0;
+				pthread_mutex_unlock(&threadlist_lock);
+			}
+		}
+
+		pthread_mutex_unlock(&cleaner_lock);
+		sleep(60);
+	}
+	pthread_exit(0);
+}
 
 void cleanup()
 {
+	pthread_mutex_lock(&cleaner_lock);
+	pthread_mutex_lock(&threadlist_lock);
+
+	pthread_cancel(cleaner_thread);
+	pthread_join(cleaner_thread, 0);
+
 	struct lnode *cur = threads;
 	while (cur){
 		struct lnode *temp = cur;
-		pthread_t *t = cur->data;
+		struct thread_state *ts = cur->data;
 		cur = cur->next;
 
-		pthread_join(*t, 0);
-		free(t);
+		pthread_join(ts->thread, 0);
+		free(ts);
 		free(temp);
 	}
 
@@ -22,7 +59,7 @@ void cleanup()
 void sigterm()
 {
 	puts("Exiting gracefully");
-	pthread_exit(0);
+	exit(0);
 }
 
 void *process_request(void *p)
@@ -98,6 +135,7 @@ void *process_request(void *p)
 RET:
 	shutdown(client_fd, SHUT_RDWR);
 	close(client_fd);
+	cc->ts->terminated = 1;
 	free(cc);
 	pthread_exit(0);
 }
@@ -116,18 +154,23 @@ int main()
 	sigaction(SIGTERM, &sa, 0);
 	sigaction(SIGINT, &sa, 0);
 
+	pthread_create(&cleaner_thread, 0, cleaner, 0);
+
 	while(1){
 		struct client_ctx *cc = socket_nextclient();
 		if (!cc)
 			continue;
 
 		struct lnode *n = calloc(sizeof(struct lnode), 1);
-		pthread_t *t = calloc(sizeof(pthread_t), 1);
+		struct thread_state *ts = calloc(sizeof(struct thread_state), 1);
+		cc->ts = ts;
 
-		pthread_create(t, 0, process_request, (void *) cc);
-		n->data = t;
+		pthread_create(&ts->thread, 0, process_request, (void *) cc);
+		n->data = ts;
+		pthread_mutex_lock(&threadlist_lock);
 		threads = lnode_push(threads, n);
+		pthread_mutex_unlock(&threadlist_lock);
 	}
 
-	pthread_exit(0);
+	exit(0);
 }

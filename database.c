@@ -5,14 +5,14 @@ struct file_entry{
 	unsigned long long id;
 };
 
-pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
-unsigned long long next_id;
-struct lnode *file_list;
+static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+static unsigned long long next_id;
+static struct lnode *file_list;
 
 int database_write(struct file_entry *fe, char *data)
 {
 	char name[256];
-	snprintf(name, 256, DATABASE_DIR "/%llx", fe->id);
+	snprintf(name, 256, DATA_DIR "database/%llx", fe->id);
 
 	FILE *fp = fopen(name, "wb");
 	if (!fp)
@@ -28,7 +28,7 @@ char *database_read(struct file_entry *fe)
 {
 	char *data;
 	char name[256];
-	snprintf(name, 256, DATABASE_DIR "/%llx", fe->id);
+	snprintf(name, 256, DATA_DIR "database/%llx", fe->id);
 
 	FILE *fp = fopen(name, "rb");
 	if (!fp)
@@ -99,8 +99,9 @@ size_t database_getfile(char *name, char **datap)
 
 void database_terminate()
 {
-	struct lnode *cur = file_list;
+	pthread_mutex_lock(&lock);
 
+	struct lnode *cur = file_list;
 	while (cur){
 		struct lnode *temp = cur;
 		struct file_entry *fe = cur->data;

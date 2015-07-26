@@ -19,7 +19,7 @@
 #define PACKET_SIZE 8192
 #define FILE_SIZE_LIMIT 60000000 //60 MB
 #define DOMAIN_NAME "wakaba.dhcp.io"
-#define DATABASE_DIR "/var/lib/wakaba/database"
+#define DATA_DIR "/var/lib/wakaba"
 
 #define MIN(X, Y) (X < Y ? X : Y)
 
@@ -43,9 +43,15 @@ struct lnode{
 	struct lnode *prev;
 };
 
+struct thread_state{
+	pthread_t thread;
+	char terminated;
+};
+
 struct client_ctx{
 	int fd;
 	char str_addr[16];
+	struct thread_state *ts;
 };
 
 int socket_initialize();

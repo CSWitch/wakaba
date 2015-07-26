@@ -1,11 +1,11 @@
 #include "sfh.h"
 
-int server_fd;
-struct sockaddr_in server_addr;
+static int server_fd;
+static struct sockaddr_in server_addr;
 
-int client_fd;
-struct sockaddr_in client_addr;
-socklen_t client_len = sizeof(struct sockaddr_in);
+static int client_fd;
+static struct sockaddr_in client_addr;
+static socklen_t client_len = sizeof(struct sockaddr_in);
 
 int socket_initialize()
 {

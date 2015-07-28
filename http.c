@@ -78,7 +78,7 @@ void http_process_request(int fd, struct request *r)
 			goto ERROR;
 		}
 
-		if (content_length > FILE_SIZE_LIMIT){
+		if (content_length > config->max_file_size){
 			errno = EFBIG;
 			goto ERROR;
 		}
@@ -156,11 +156,9 @@ void http_process_request(int fd, struct request *r)
 			goto ERROR;
 		}
 
-#ifdef CLIENT_CACHING
 		//Check if the client has already cached this file.
-		if (strstr(buf, "Cache-Control: "))
+		if (config->browser_cache && strstr(buf, "Cache-Control: "))
 			r->type = R_CACHED;
-#endif
 
 		free(buf);
 	}

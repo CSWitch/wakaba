@@ -13,7 +13,7 @@ int socket_initialize()
 
 	server_addr.sin_family = AF_INET;
 	server_addr.sin_addr.s_addr = INADDR_ANY;
-	server_addr.sin_port = htons(SERVER_PORT);
+	server_addr.sin_port = htons(config->port);
 
 	server_fd = socket(AF_INET, SOCK_STREAM, 0);
 	if (server_fd == -1)

@@ -1,9 +1,20 @@
 #include "sfh.h"
 
+static char wants_exit;
 static struct lnode *threads;
 static pthread_t cleaner_thread;
 static pthread_mutex_t cleaner_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t threadlist_lock = PTHREAD_MUTEX_INITIALIZER;
+
+static struct config conf = {
+	.port = 80,
+	.max_file_size = 32000000, //32 MB
+	.max_cache_size = 512000000, //512 MB
+	.domainname = "wakaba.dhcp.io",
+	.username = "wakaba",
+	.db_persist = 0,
+	.browser_cache = 0
+};
 
 void *cleaner()
 {
@@ -63,94 +74,61 @@ void cleanup()
 void sigterm()
 {
 	puts("Exiting gracefully");
-	exit(0);
+	wants_exit = 1;
 }
 
-void *process_request(void *p)
+int load_config()
 {
-	char *err_invreq = "Invalid request\n";
-	char *err_toolarge = "File too large\n";
-	char *err_nodata = "No data received\n";
-	char *err_notfound = "File not found in database\n";
+	FILE *fp = fopen(CONF_DIR "wakaba.conf", "r");
+	if (!fp)
+		return 1;
 
-	struct client_ctx *cc = p;
-	int client_fd = cc->fd;
-	struct request r;
+	char opt[128];
+	char val[128];
 
-	memset(&r, 0, sizeof(r));
-	http_process_request(client_fd, &r);
+	while (!feof(fp)){
+		memset(opt, 0, 128);
+		memset(val, 0, 128);
 
-	if (r.type == R_INVALID){
-		switch(errno){
-			case EFBIG:
-				socket_puts(client_fd, err_toolarge);
-				break;
-			case ENODATA:
-				socket_puts(client_fd, err_nodata);
-				break;
-			case EINVAL:
-			default:
-				socket_puts(client_fd, err_invreq);
-				break;
+		fscanf(fp, "%s = %s\n", opt, val);
+		if (!opt[0] || !val[0] || isspace(opt[0]) || opt[0] == '#')
+			continue;
+
+		if (!strcmp(opt, "port")){
+			config->port = (uint16_t) strtol(val, 0, 10);
+		}else if (!strcmp(opt, "max_file_size")){
+			config->max_file_size = (size_t) strtol(val, 0, 10);
+		}else if (!strcmp(opt, "max_cache_size")){
+			config->max_cache_size = (size_t) strtol(val, 0, 10);
+		}else if (!strcmp(opt, "domainname")){
+			strncpy(config->domainname, val, 128);
+		}else if (!strcmp(opt, "username")){
+			strncpy(config->username, val, 128);
+		}else if (!strcmp(opt, "db_persist")){
+			config->db_persist = (char) strtol(val, 0, 10);
+		}else if (!strcmp(opt, "browser_cache")){
+			config->browser_cache = (char) strtol(val, 0, 10);
 		}
-		errno = 0;
-		goto RET;
 	}
 
-	if (r.type == R_POST){
-		unsigned long long id = database_push(r.data, r.len);
-		char buf[128];
-
-		printf("%s uploaded file of %zu bytes (%llx)\n", cc->str_addr, r.len, id);
-
-		snprintf(buf, 128, "http://" DOMAIN_NAME "/%llx\n", id);
-		socket_puts(client_fd, buf);
-	}else if (r.type == R_GET){
-		char *data = 0;
-		size_t len = database_getfile(r.filename, &data);
-		char http_header[2048];
-
-		if (!data){
-			socket_puts(client_fd, err_notfound);
-			goto RET;
-		}
-
-		printf("%s requested file %s\n", cc->str_addr, r.filename);
-
-		snprintf(http_header, 2048, "HTTP/1.0 200 OK\r\nContent-Length: %zu\r\nExpires: Sun, 17-jan-2038 19:14:07 GMT\r\n\r\n", len);
-		socket_puts(client_fd, http_header);
-		socket_write(client_fd, data, len);
-	}else if (r.type == R_CACHED){
-		char *http_header = "HTTP/1.0 304 Not Modified\r\n\r\n";
-
-		if (!database_getfile(r.filename, 0)){
-			socket_puts(client_fd, err_notfound);
-			goto RET;
-		}
-
-		socket_puts(client_fd, http_header);
-		printf("%s requested cached file\n", cc->str_addr);
-	}
-
-RET:
-	shutdown(client_fd, SHUT_RDWR);
-	close(client_fd);
-	cc->ts->terminated = 1;
-	free(cc);
-	pthread_exit(0);
+	fclose(fp);
+	return 0;
 }
 
 int main()
 {
+	config = &conf;
+	load_config();
+
 	if (socket_initialize()){
 		puts("Failed to initialize server");
 		return 1;
 	}
 
 	//Shrink user privileges
-	struct passwd *pw = getpwnam(USERNAME);
-	if (setuid(pw->pw_uid) == -1 || setgid(pw->pw_gid == (unsigned) -1)){
-		puts("Failed to set user ID");
+	struct passwd *pw = getpwnam(config->username);
+	if (!pw || setuid(pw->pw_uid) == -1 || setgid(pw->pw_gid == (unsigned) -1)){
+		printf("Failed to set user to \"%s\"\n", config->username);
 		return 1;
 	}
 
@@ -166,7 +144,7 @@ int main()
 
 	pthread_create(&cleaner_thread, 0, cleaner, 0);
 
-	while(1){
+	while(!wants_exit){
 		struct client_ctx *cc = socket_nextclient();
 		if (!cc)
 			continue;

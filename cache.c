@@ -58,7 +58,7 @@ void cache_prune()
 
 		size += ce->len;
 
-		if (size > CACHE_SIZE)
+		if (size > config->max_cache_size)
 			cache_pop(temp);
 	}
 

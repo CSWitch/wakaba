@@ -124,7 +124,9 @@ int database_isonfs(unsigned long long id)
 
 int database_init()
 {
-#ifdef DATABASE_PERSIST
+	if (!config->db_persist)
+		return 0;
+
 	FILE *fp = fopen(DATA_DIR "/database.txt", "r");
 	if (!fp)
 		return 1;
@@ -145,14 +147,15 @@ int database_init()
 		next_id++;
 	}
 	fclose(fp);
-#endif
 
 	return 0;
 }
 
 void database_destroydb()
 {
-#ifndef DATABASE_PERSIST
+	if (config->db_persist)
+		return;
+
 	char name[256];
 
 	for (struct lnode *cur = file_list; cur; cur = cur->next){
@@ -160,13 +163,13 @@ void database_destroydb()
 		serialize_id(fe->id, name, 256);
 		remove(name);
 	}
-	remove(DATA_DIR "database.txt");
-#endif
 }
 
 int database_flush()
 {
-#ifdef DATABASE_PERSIST
+	if (!config->db_persist)
+		return 0;
+
 	pthread_mutex_lock(&lock);
 	FILE *fp = fopen(DATA_DIR "/database.txt", "w");
 	if (!fp)
@@ -179,7 +182,6 @@ int database_flush()
 
 	fclose(fp);
 	pthread_mutex_unlock(&lock);
-#endif
 	return 0;
 }
 

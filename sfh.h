@@ -15,17 +15,26 @@
 #include <pthread.h>
 #include <sys/stat.h>
 #include <pwd.h>
+#include <ctype.h>
 
-#define SERVER_PORT 8080
 #define SERVER_BACKLOG 10
 #define PACKET_SIZE 8192
-#define FILE_SIZE_LIMIT 60000000 //60 MB
-#define DOMAIN_NAME "wakaba.dhcp.io"
 #define DATA_DIR "/var/lib/wakaba/"
-#define USERNAME "wakaba"
-#define CACHE_SIZE 120000000 //120 MB
+#define CONF_DIR "/etc/"
 
 #define MIN(X, Y) (X < Y ? X : Y)
+
+struct config{
+	uint16_t port;
+	size_t max_file_size;
+	size_t max_cache_size;
+	char domainname[128];
+	char username[128];
+	char db_persist;
+	char browser_cache;
+};
+
+struct config *config;
 
 enum request_type{
 	R_INVALID,
@@ -95,6 +104,8 @@ struct cache_entry *cache_get(unsigned long long id);
 void cache_terminate();
 
 void cache_prune();
+
+void *process_request(void *p);
 
 static inline struct lnode *lnode_push(struct lnode *head, struct lnode *node)
 {

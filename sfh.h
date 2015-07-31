@@ -16,11 +16,13 @@
 #include <sys/stat.h>
 #include <pwd.h>
 #include <ctype.h>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
 
 #define SERVER_BACKLOG 10
 #define PACKET_SIZE 8192
 #define DATA_DIR "/var/lib/wakaba/"
-#define CONF_DIR "/etc/"
+#define CONF_DIR "/etc/wakaba/"
 
 #define MIN(X, Y) (X < Y ? X : Y)
 
@@ -32,6 +34,8 @@ struct config{
 	char username[128];
 	char db_persist;
 	char browser_cache;
+	char ssl_cert[128];
+	char ssl_pkey[128];
 };
 
 struct config *config;
@@ -65,6 +69,7 @@ struct client_ctx{
 	int fd;
 	char str_addr[16];
 	struct thread_state *ts;
+	SSL *ssl;
 };
 
 struct cache_entry{
@@ -75,17 +80,19 @@ struct cache_entry{
 
 int socket_initialize();
 
+void socket_close(struct client_ctx *cc);
+
 struct client_ctx *socket_nextclient();
 
 void socket_terminate();
 
-void socket_puts(int fd, char *str);
+void socket_puts(struct client_ctx *cc, char *str);
 
-size_t socket_read(int fd, char *buf, size_t len);
+size_t socket_read(struct client_ctx *cc, char *buf, size_t len);
 
-void socket_write(int fd, char *buf, ssize_t len);
+void socket_write(struct client_ctx *cc, char *buf, ssize_t len);
 
-void http_process_request(int fd, struct request *r);
+void http_process_request(struct client_ctx *cc, struct request *r);
 
 unsigned long long database_push(char *data, size_t len);
 

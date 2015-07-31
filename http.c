@@ -33,13 +33,13 @@ size_t http_get_header(char *buf, char *header, size_t n)
 	return len;
 }
 
-void http_process_request(int fd, struct request *r)
+void http_process_request(struct client_ctx *cc, struct request *r)
 {
 	char *buf = calloc(2048, 1);
 	size_t buf_len = 0;
 
-	buf_len = read(fd, buf, 2047);
-	if (!buf_len){
+	buf_len = SSL_read(cc->ssl, buf, 2047);
+	if (buf_len <= 0){
 		errno = ENODATA;
 		goto ERROR;
 	}
@@ -97,11 +97,11 @@ void http_process_request(int fd, struct request *r)
 
 		//Send 100-continue if needed.
 		if (strstr(header, "Expect: 100-continue"))
-			socket_puts(fd, "HTTP/1.0 100 Continue\r\n\r\n");
+			socket_puts(cc, "HTTP/1.0 100 Continue\r\n\r\n");
 
 		//Expand buf and read in rest of the body.
 		buf = realloc(buf, content_length);
-		buf_len += socket_read(fd, buf + buf_len, content_length - buf_len);
+		buf_len += socket_read(cc, buf + buf_len, content_length - buf_len);
 
 		//I wouldn't trust it, considering most of these requests are coming from /g/.
 		if (buf_len != content_length){

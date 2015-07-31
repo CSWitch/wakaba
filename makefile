@@ -1,12 +1,12 @@
 CC = gcc
 CFLAGS = --std=c11 -Wall -Wextra -pipe -march=native -mtune=native -pthread
-LDFLAGS = -o sfhd
+LDFLAGS = -o sfhd -lssl -lcrypto
 
 dev: CC = clang
 dev: CFLAGS += -g -O0
 dev: sfhd
 
-release: CFLAGS += -O2
+release: CFLAGS += -O2 -fstack-protector-strong
 release: LDFLAGS += -s
 release: sfhd
 

@@ -13,7 +13,9 @@ static struct config conf = {
 	.domainname = "wakaba.dhcp.io",
 	.username = "wakaba",
 	.db_persist = 0,
-	.browser_cache = 0
+	.browser_cache = 0,
+	.ssl_cert = "server.crt",
+	.ssl_pkey = "server.key"
 };
 
 void *cleaner()
@@ -108,6 +110,10 @@ int load_config()
 			config->db_persist = (char) strtol(val, 0, 10);
 		}else if (!strcmp(opt, "browser_cache")){
 			config->browser_cache = (char) strtol(val, 0, 10);
+		}else if (!strcmp(opt, "ssl_cert")){
+			strncpy(config->ssl_cert, val, 128);
+		}else if (!strcmp(opt, "ssl_pkey")){
+			strncpy(config->ssl_pkey, val, 128);
 		}
 	}
 

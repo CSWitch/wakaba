@@ -18,6 +18,7 @@
 #include <ctype.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
+#include <sys/statvfs.h>
 
 #define SERVER_BACKLOG 10
 #define PACKET_SIZE 8192
@@ -36,6 +37,7 @@ struct config{
 	char browser_cache;
 	char ssl_cert[128];
 	char ssl_pkey[128];
+	char admin_pwd[128];
 };
 
 struct config *config;
@@ -44,7 +46,8 @@ enum request_type{
 	R_INVALID,
 	R_POST,
 	R_GET,
-	R_CACHED
+	R_CACHED,
+	R_CMD
 };
 
 struct request{
@@ -70,12 +73,22 @@ struct client_ctx{
 	char str_addr[16];
 	struct thread_state *ts;
 	SSL *ssl;
+	struct request *r;
 };
 
 struct cache_entry{
 	char *data;
 	size_t len;
 	unsigned long long id;
+};
+
+struct db_stats{
+	size_t disk_max;
+	size_t disk_use;
+	size_t cache_max;
+	size_t cache_use;
+	size_t files;
+	size_t cache_entries;
 };
 
 int socket_initialize();
@@ -104,6 +117,10 @@ int database_init();
 
 int database_flush();
 
+int database_getstats(struct db_stats *stats);
+
+int database_rm(char *name);
+
 void cache_push(char *data, size_t len, unsigned long long id);
 
 struct cache_entry *cache_get(unsigned long long id);
@@ -111,6 +128,10 @@ struct cache_entry *cache_get(unsigned long long id);
 void cache_terminate();
 
 void cache_prune();
+
+void cache_getstats(struct db_stats *stats);
+
+int cache_rm(unsigned long long id);
 
 void *process_request(void *p);
 

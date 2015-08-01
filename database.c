@@ -64,6 +64,54 @@ unsigned long long database_push(char *data, size_t len)
 	return fe->id;
 }
 
+struct lnode *database_get(unsigned long long id)
+{
+	pthread_mutex_lock(&lock);
+
+	for (struct lnode *cur = file_list; cur; cur = cur->next){
+		struct file_entry *fe = cur->data;
+		if (fe->id == id){
+			pthread_mutex_unlock(&lock);
+			return cur;
+		}
+	}
+
+	pthread_mutex_unlock(&lock);
+	return 0;
+}
+
+void database_pop(struct lnode *node)
+{
+	pthread_mutex_lock(&lock);
+
+	free(node->data);
+	if (node == file_list)
+		file_list = file_list->next;
+	free(lnode_pop(node));
+
+	pthread_mutex_unlock(&lock);
+}
+
+int database_rm(char *name)
+{
+	unsigned long long id = strtoull(name, 0, 16);
+	struct lnode *node = database_get(id);
+
+	if (!node)
+		return 1;
+
+	database_pop(node);
+	cache_rm(id);
+
+	char path[512];
+	snprintf(path, 512, DATA_DIR "/database/%llx", id);
+	remove(path);
+
+	printf("%llx removed from database\n", id);
+
+	return 0;
+}
+
 size_t database_getfile(char *name, char **datap)
 {
 	struct file_entry *entry = 0;
@@ -81,20 +129,10 @@ size_t database_getfile(char *name, char **datap)
 		return ce->len;
 	}
 
-	pthread_mutex_lock(&lock);
+	struct lnode *n = database_get(id);
 
-	for (struct lnode *cur = file_list; cur; cur = cur->next){
-		struct file_entry *fe = cur->data;
-
-		if (fe->id == id){
-			entry = fe;
-			break;
-		}
-	}
-
-	pthread_mutex_unlock(&lock);
-
-	if (entry){
+	if (n){
+		entry = n->data;
 		char *data = database_read(entry);
 
 		if (!data)
@@ -201,4 +239,24 @@ void database_terminate()
 		free(fe);
 		free(temp);
 	}
+}
+
+int database_getstats(struct db_stats *stats)
+{
+	struct statvfs vfs;
+	if (statvfs(DATA_DIR "/database/", &vfs))
+		return 1;
+
+	pthread_mutex_lock(&lock);
+	for (struct lnode *cur = file_list; cur; cur = cur->next){
+		struct file_entry *fe = cur->data;
+		stats->files++;
+		stats->disk_use += fe->len;
+	}
+	pthread_mutex_unlock(&lock);
+
+	stats->disk_max = (vfs.f_bsize * vfs.f_bfree) + stats->disk_use;
+	cache_getstats(stats);
+
+	return 0;
 }

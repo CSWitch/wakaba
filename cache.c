@@ -18,7 +18,7 @@ void cache_push(char *data, size_t len, unsigned long long id)
 	pthread_mutex_unlock(&lock);
 }
 
-struct cache_entry *cache_get(unsigned long long id)
+struct lnode *cache_get_node(unsigned long long id)
 {
 	pthread_mutex_lock(&lock);
 
@@ -27,11 +27,21 @@ struct cache_entry *cache_get(unsigned long long id)
 
 		if (ce->id == id){
 			pthread_mutex_unlock(&lock);
-			return ce;
+			return cur;
 		}
 	}
 
 	pthread_mutex_unlock(&lock);
+	return 0;
+}
+
+struct cache_entry *cache_get(unsigned long long id)
+{
+	struct lnode *n = cache_get_node(id);
+
+	if (n)
+		return n->data;
+
 	return 0;
 }
 
@@ -41,8 +51,23 @@ void cache_pop(struct lnode *n)
 	free(ce->data);
 	free(ce);
 	if (n == cache_list)
-		cache_list = 0;
+		cache_list = cache_list->next;
 	free(lnode_pop(n));
+}
+
+int cache_rm(unsigned long long id)
+{
+	struct lnode *n = cache_get_node(id);
+
+	if (n){
+		pthread_mutex_lock(&lock);
+		cache_pop(n);
+		pthread_mutex_unlock(&lock);
+
+		return 0;
+	}
+
+	return 1;
 }
 
 void cache_prune()
@@ -78,4 +103,17 @@ void cache_terminate()
 		free(ce);
 		free(temp);
 	}
+}
+
+void cache_getstats(struct db_stats *stats)
+{
+	stats->cache_max = config->max_cache_size;
+
+	pthread_mutex_lock(&lock);
+	for (struct lnode *cur = cache_list; cur; cur = cur->next){
+		struct cache_entry *ce = cur->data;
+		stats->cache_entries++;
+		stats->cache_use += ce->len;
+	}
+	pthread_mutex_unlock(&lock);
 }

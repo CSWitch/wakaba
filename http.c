@@ -150,6 +150,14 @@ void http_process_request(struct client_ctx *cc, struct request *r)
 		fn_len = MIN(strchr(filename, ' ') - filename, 127);
 		strncpy(r->filename, filename, fn_len);
 		r->filename[fn_len] = 0;
+
+		//Check if admin command.
+		if (r->filename[0] == '$'){
+			free(buf);
+			r->type = R_CMD;
+			return;
+		}
+
 		//Protect against common exploits.
 		if (!r->filename[0] || strchr(r->filename, '/') || strstr(r->filename, "..")){
 			errno = EINVAL;

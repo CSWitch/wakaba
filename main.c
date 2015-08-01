@@ -1,13 +1,12 @@
 #include "sfh.h"
 
-static char wants_exit;
 static struct lnode *threads;
 static pthread_t cleaner_thread;
 static pthread_mutex_t cleaner_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t threadlist_lock = PTHREAD_MUTEX_INITIALIZER;
 
 static struct config conf = {
-	.port = 80,
+	.port = 443,
 	.max_file_size = 32000000, //32 MB
 	.max_cache_size = 512000000, //512 MB
 	.domainname = "wakaba.dhcp.io",
@@ -15,7 +14,8 @@ static struct config conf = {
 	.db_persist = 0,
 	.browser_cache = 0,
 	.ssl_cert = "server.crt",
-	.ssl_pkey = "server.key"
+	.ssl_pkey = "server.key",
+	.admin_pwd = ""
 };
 
 void *cleaner()
@@ -76,7 +76,7 @@ void cleanup()
 void sigterm()
 {
 	puts("Exiting gracefully");
-	wants_exit = 1;
+	exit(0);
 }
 
 int load_config()
@@ -114,6 +114,8 @@ int load_config()
 			strncpy(config->ssl_cert, val, 128);
 		}else if (!strcmp(opt, "ssl_pkey")){
 			strncpy(config->ssl_pkey, val, 128);
+		}else if (!strcmp(opt, "admin_pwd")){
+			strncpy(config->admin_pwd, val, 128);
 		}
 	}
 
@@ -150,7 +152,7 @@ int main()
 
 	pthread_create(&cleaner_thread, 0, cleaner, 0);
 
-	while(!wants_exit){
+	while(1){
 		struct client_ctx *cc = socket_nextclient();
 		if (!cc)
 			continue;

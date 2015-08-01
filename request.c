@@ -1,5 +1,76 @@
 #include "sfh.h"
 
+void process_admincmd(struct client_ctx *cc)
+{
+	char *cmd = cc->r->filename + 1;
+
+	if (!config->admin_pwd[0]){
+		socket_puts(cc, "Administration disabled (no password set)\n");
+		return;
+	}
+
+	char pwd[128];
+	char *pwd_delim = strchr(cmd, ':');
+	size_t pwd_len = 0;
+	if (!pwd_delim){
+		socket_puts(cc, "Password required\n");
+		return;
+	}
+	pwd_len = pwd_delim - cmd;
+	strncpy(pwd, cmd, pwd_len);
+
+	if(strcmp(config->admin_pwd, pwd)){
+		socket_puts(cc, "Password incorrect\n");
+		printf("%s incorrect password (%s)\n", cc->str_addr, pwd);
+		return;
+	}
+	cmd = pwd_delim + 1;
+
+	printf("%s executed admin command \"%s\"\n", cc->str_addr, cmd);
+
+	char *err_inv = "Invalid syntax\n";
+
+	if (strstr(cmd, "stats") == cmd){ //Print stats.
+		struct db_stats stats;
+		memset(&stats, 0, sizeof(stats));
+		char buf[1024];
+
+		database_getstats(&stats);
+		snprintf(buf, 1024,
+				"Disk: %zu/%zu bytes\n"
+				"Cache: %zu/%zu bytes\n"
+				"Files: %zu (%zu cached)\n",
+				stats.disk_use, stats.disk_max,
+				stats.cache_use, stats.cache_max,
+				stats.files, stats.cache_entries
+		);
+		socket_puts(cc, buf);
+	}else if (strstr(cmd, "shutdown") == cmd){ //Shutdown server.
+		socket_puts(cc, "Shutting down server\n");
+		kill(getpid(), SIGTERM);
+	}else if (strstr(cmd, "rm") == cmd){ //Remove file.
+		char *name = strchr(cmd, '=');
+		if (!name){
+			socket_puts(cc, err_inv);
+			return;
+		}
+		name++;
+
+		if (database_rm(name)){
+			socket_puts(cc, "File not found in database\n");
+			return;
+		}
+		socket_puts(cc, "File removed from database\n");
+	}else{ //Print help.
+		socket_puts(cc,
+				"Available commands:\n"
+				"stats - print database statistics\n"
+				"shutdown - gracefully terminate server\n"
+				"rm - remove file from database\n"
+		);
+	}
+}
+
 void *process_request(void *p)
 {
 	char *err_invreq = "Invalid request\n";
@@ -12,6 +83,7 @@ void *process_request(void *p)
 
 	memset(&r, 0, sizeof(r));
 	http_process_request(cc, &r);
+	cc->r = &r;
 
 	if (r.type == R_INVALID){
 		switch(errno){
@@ -30,7 +102,9 @@ void *process_request(void *p)
 		goto RET;
 	}
 
-	if (r.type == R_POST){
+	if (r.type == R_CMD){
+		process_admincmd(cc);
+	}else if (r.type == R_POST){
 		unsigned long long id = database_push(r.data, r.len);
 		char buf[128];
 

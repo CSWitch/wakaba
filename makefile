@@ -6,7 +6,7 @@ dev: CC = clang
 dev: CFLAGS += -g -O0
 dev: sfhd
 
-release: CFLAGS += -O2 -fstack-protector-strong
+release: CFLAGS += -O2 -fstack-protector-all
 release: LDFLAGS += -s
 release: sfhd
 

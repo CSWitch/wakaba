@@ -85,7 +85,7 @@ void http_process_request(struct client_ctx *cc, struct request *r)
 
 		//Make sure encoding is multipart/form-data and extract the boundary.
 		size_t b_len = 0;
-		char *bp = http_get_field(buf, "Content-Type: multipart/form-data; boundary=");
+		char *bp = http_get_field(header, "Content-Type: multipart/form-data; boundary=");
 		if (!bp){
 			errno = EINVAL;
 			goto ERROR;

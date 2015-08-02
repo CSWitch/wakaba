@@ -103,6 +103,11 @@ struct client_ctx *socket_nextclient()
 	cc->fd = client_fd;
 	socket_clientaddr(cc);
 
+	char strtime[512];
+	time_t t = time(0);
+	strftime(strtime, 512, "%a %d/%m/%y %I:%M", localtime(&t));
+	printf("\033[1m%s, (socket):\033[0m Got connection from %s\n", strtime, cc->str_addr);
+
 	//SSL
 	cc->ssl = SSL_new(ctx);
 	SSL_set_fd(cc->ssl, cc->fd);

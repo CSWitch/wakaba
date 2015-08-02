@@ -23,6 +23,7 @@ void *cleaner()
 	while(1){
 		pthread_mutex_lock(&cleaner_lock);
 
+		int count = 0;
 		struct lnode *cur = threads;
 		while (cur){
 			struct lnode *temp = cur;
@@ -37,7 +38,15 @@ void *cleaner()
 				if (temp == threads)
 					threads = 0;
 				pthread_mutex_unlock(&threadlist_lock);
+				count++;
 			}
+		}
+
+		if (count > 0){
+			char strtime[512];
+			time_t t = time(0);
+			strftime(strtime, 512, "%a %d/%m/%y %I:%M", localtime(&t));
+			printf("\033[1m%s, (GC):\033[0m Cleaned up %i %s\n", strtime, count, count > 1 ? "threads" : "thread");
 		}
 
 		database_flush();
@@ -51,6 +60,11 @@ void *cleaner()
 
 void cleanup()
 {
+	char strtime[512];
+	time_t t = time(0);
+	strftime(strtime, 512, "%a %d/%m/%y %I:%M", localtime(&t));
+	printf("\033[1m%s, (server):\033[0m Server shutting down\n", strtime);
+
 	pthread_mutex_lock(&cleaner_lock);
 	pthread_mutex_lock(&threadlist_lock);
 
@@ -75,7 +89,6 @@ void cleanup()
 
 void sigterm()
 {
-	puts("Exiting gracefully");
 	exit(0);
 }
 
@@ -129,14 +142,14 @@ int main()
 	load_config();
 
 	if (socket_initialize()){
-		puts("Failed to initialize server");
+		puts("\033[1;31mERROR:\033[0m Failed to initialize server");
 		return 1;
 	}
 
 	//Shrink user privileges
 	struct passwd *pw = getpwnam(config->username);
 	if (!pw || setuid(pw->pw_uid) == -1 || setgid(pw->pw_gid == (unsigned) -1)){
-		printf("Failed to set user to \"%s\"\n", config->username);
+		printf("\033[1;31mERROR:\033[0m Failed to set user to \"%s\"\n", config->username);
 		return 1;
 	}
 
@@ -147,10 +160,17 @@ int main()
 	sa.sa_handler = sigterm;
 	sigaction(SIGTERM, &sa, 0);
 	sigaction(SIGINT, &sa, 0);
+	sa.sa_handler = SIG_IGN;
+	sigaction(SIGPIPE, &sa, 0);
 
 	database_init();
 
 	pthread_create(&cleaner_thread, 0, cleaner, 0);
+
+	char strtime[512];
+	time_t t = time(0);
+	strftime(strtime, 512, "%a %d/%m/%y %I:%M", localtime(&t));
+	printf("\033[1m%s, (server):\033[0m Server initialized\n", strtime);
 
 	while(1){
 		struct client_ctx *cc = socket_nextclient();

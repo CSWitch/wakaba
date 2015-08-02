@@ -74,6 +74,7 @@ void cache_prune()
 {
 	pthread_mutex_lock(&lock);
 
+	size_t freed = 0;
 	size_t size = 0;
 	struct lnode *cur = cache_list;
 	while (cur){
@@ -83,8 +84,17 @@ void cache_prune()
 
 		size += ce->len;
 
-		if (size > config->max_cache_size)
+		if (size > config->max_cache_size){
 			cache_pop(temp);
+			freed += ce->len;
+		}
+	}
+
+	if (freed > 0){
+		char strtime[512];
+		time_t t = time(0);
+		strftime(strtime, 512, "%a %d/%m/%y %I:%M", localtime(&t));
+		printf("\033[1m%s, (GC):\033[0m Pruned %zu bytes from cache\n", strtime, freed);
 	}
 
 	pthread_mutex_unlock(&lock);

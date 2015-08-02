@@ -3,7 +3,7 @@ CFLAGS = --std=c11 -Wall -Wextra -pipe -march=native -mtune=native -pthread
 LDFLAGS = -o sfhd -lssl -lcrypto
 
 dev: CC = clang
-dev: CFLAGS += -g -O0
+dev: CFLAGS += -g -O0 -fsanitize=address
 dev: sfhd
 
 release: CFLAGS += -O2 -fstack-protector-all
@@ -37,3 +37,6 @@ clean:
 
 analyze:
 	scan-build clang *.c $(CFLAGS) $(LDFLAGS)
+
+install: release
+	cp sfhd /bin/

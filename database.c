@@ -107,7 +107,10 @@ int database_rm(char *name)
 	snprintf(path, 512, DATA_DIR "/database/%llx", id);
 	remove(path);
 
-	printf("%llx removed from database\n", id);
+	char strtime[512];
+	time_t t = time(0);
+	strftime(strtime, 512, "%a %d/%m/%y %I:%M", localtime(&t));
+	printf("\033[1m%s, (database):\033[m File %llx removed\n", strtime, id);
 
 	return 0;
 }

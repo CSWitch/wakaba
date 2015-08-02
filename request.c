@@ -9,6 +9,7 @@ void process_admincmd(struct client_ctx *cc)
 		return;
 	}
 
+	//Get and verify password.
 	char pwd[128];
 	char *pwd_delim = strchr(cmd, ':');
 	size_t pwd_len = 0;
@@ -16,20 +17,26 @@ void process_admincmd(struct client_ctx *cc)
 		socket_puts(cc, "Password required\n");
 		return;
 	}
-	pwd_len = pwd_delim - cmd;
+	pwd_len = MIN(pwd_delim - cmd, 127);
 	strncpy(pwd, cmd, pwd_len);
+	pwd[pwd_len] = 0;
+
+	char strtime[512];
+	time_t t = time(0);
+	strftime(strtime, 512, "%a %d/%m/%y %I:%M", localtime(&t));
 
 	if(strcmp(config->admin_pwd, pwd)){
-		socket_puts(cc, "Password incorrect\n");
-		printf("%s incorrect password (%s)\n", cc->str_addr, pwd);
+		socket_puts(cc, "Access denied\n");
+		printf("\033[1m%s, \033[31m(admin)\033[0;1m:\033[0m %s: Incorrect password (%s)\n", strtime, cc->str_addr, pwd);
 		return;
 	}
 	cmd = pwd_delim + 1;
 
-	printf("%s executed admin command \"%s\"\n", cc->str_addr, cmd);
+	printf("\033[1m%s, \033[31m(admin)\033[0;1m:\033[0m %s: \033[1mExecuted\033[0m command \"%s\"\n", strtime, cc->str_addr, cmd);
 
 	char *err_inv = "Invalid syntax\n";
 
+	//Process command.
 	if (strstr(cmd, "stats") == cmd){ //Print stats.
 		struct db_stats stats;
 		memset(&stats, 0, sizeof(stats));
@@ -85,6 +92,10 @@ void *process_request(void *p)
 	http_process_request(cc, &r);
 	cc->r = &r;
 
+	char strtime[512];
+	time_t t = time(0);
+	strftime(strtime, 512, "%a %d/%m/%y %I:%M", localtime(&t));
+
 	if (r.type == R_INVALID){
 		switch(errno){
 			case EFBIG:
@@ -108,7 +119,7 @@ void *process_request(void *p)
 		unsigned long long id = database_push(r.data, r.len);
 		char buf[128];
 
-		printf("%s uploaded file of %zu bytes (%llx)\n", cc->str_addr, r.len, id);
+		printf("\033[1m%s, (request):\033[0m %s: New file of %zu bytes uploaded (%llx)\n", strtime, cc->str_addr, r.len, id);
 
 		snprintf(buf, 128, "http://%s:%i/%llx\n", config->domainname, config->port, id);
 		socket_puts(cc, buf);
@@ -122,7 +133,7 @@ void *process_request(void *p)
 			goto RET;
 		}
 
-		printf("%s requested file %s\n", cc->str_addr, r.filename);
+		printf("\033[1m%s, (request):\033[0m %s: File %s requested\n", strtime, cc->str_addr, r.filename);
 
 		snprintf(http_header, 2048, "HTTP/1.0 200 OK\r\nContent-Length: %zu\r\nExpires: Sun, 17-jan-2038 19:14:07 GMT\r\n\r\n", len);
 		socket_puts(cc, http_header);

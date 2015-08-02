@@ -130,6 +130,11 @@ void http_process_request(struct client_ctx *cc, struct request *r)
 		end -= 4;
 		file_len = end - start;
 
+		if (file_len <= 0){
+			errno = ENODATA;
+			goto ERROR;
+		}
+
 		//Let's reuse buf by memmove'ing the file data to the beginning.
 		memmove(buf, start, file_len);
 		buf = realloc(buf, file_len);

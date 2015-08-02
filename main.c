@@ -138,6 +138,9 @@ int load_config()
 
 int main()
 {
+	//Piping stdout to a file disables line buffering, so turn it back on.
+	setvbuf(stdout, 0, _IOLBF, 0);
+
 	config = &conf;
 	load_config();
 

@@ -44,11 +44,11 @@ void process_admincmd(struct client_ctx *cc)
 
 		database_getstats(&stats);
 		snprintf(buf, 1024,
-				"Disk: %zu/%zu bytes\n"
-				"Cache: %zu/%zu bytes\n"
+				"Disk: %.2f/%.2f MB\n"
+				"Cache: %.2f/%.2f MB\n"
 				"Files: %zu (%zu cached)\n",
-				stats.disk_use, stats.disk_max,
-				stats.cache_use, stats.cache_max,
+				(float) stats.disk_use / 1000000.0, (float) stats.disk_max / 1000000.0,
+				(float) stats.cache_use / 1000000.0, (float) stats.cache_max / 1000000.0,
 				stats.files, stats.cache_entries
 		);
 		socket_puts(cc, buf);

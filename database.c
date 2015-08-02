@@ -187,7 +187,8 @@ int database_init()
 
 		n->data = fe;
 		file_list = lnode_push(file_list, n);
-		next_id++;
+		if (fe->id >= next_id)
+			next_id = fe->id + 1;
 	}
 	fclose(fp);
 

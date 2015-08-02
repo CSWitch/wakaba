@@ -119,7 +119,7 @@ void *process_request(void *p)
 		unsigned long long id = database_push(r.data, r.len);
 		char buf[128];
 
-		printf("\033[1m%s, (request):\033[0m %s: New file of %zu bytes uploaded (%llx)\n", strtime, cc->str_addr, r.len, id);
+		printf("\033[1m%s, (request):\033[0m %s: File of %zu bytes uploaded (%llx)\n", strtime, cc->str_addr, r.len, id);
 
 		snprintf(buf, 128, "http://%s:%i/%llx\n", config->domainname, config->port, id);
 		socket_puts(cc, buf);

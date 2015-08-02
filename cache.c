@@ -35,12 +35,25 @@ struct lnode *cache_get_node(unsigned long long id)
 	return 0;
 }
 
+void cache_bump(struct lnode *n)
+{
+	if (n == cache_list)
+		return;
+
+	pthread_mutex_lock(&lock);
+	lnode_pop(n);
+	cache_list = lnode_push(cache_list, n);
+	pthread_mutex_unlock(&lock);
+}
+
 struct cache_entry *cache_get(unsigned long long id)
 {
 	struct lnode *n = cache_get_node(id);
 
-	if (n)
+	if (n){
+		cache_bump(n);
 		return n->data;
+	}
 
 	return 0;
 }

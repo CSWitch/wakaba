@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = --std=c11 -Wall -Wextra -pipe -march=native -mtune=native -pthread
+CFLAGS = --std=c11 -Wall -Wextra -pedantic -pipe -march=native -mtune=native -pthread
 LDFLAGS = -o sfhd -lssl -lcrypto
 
 dev: CC = clang

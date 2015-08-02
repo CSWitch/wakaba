@@ -183,7 +183,7 @@ static inline void *memmem(void *haystack, size_t haystack_len, void *needle, si
 			}
 		}
 		if (match >= needle_len){
-			return haystack + h_pos;
+			return (uint8_t *) haystack + h_pos;
 		}
 	}
 

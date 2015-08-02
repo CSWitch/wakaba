@@ -121,7 +121,6 @@ size_t database_getfile(char *name, char **datap)
 	char *err = 0;
 	unsigned long long id = strtoull(name, &err, 16);
 	if ((!id && errno == EINVAL) || (err && isalpha(*err))){
-		puts("test");
 		errno = 0;
 		return 0;
 	}

@@ -106,7 +106,7 @@ void cache_prune()
 	if (freed > 0){
 		char strtime[512];
 		time_t t = time(0);
-		strftime(strtime, 512, "%a %d/%m/%y %I:%M", localtime(&t));
+		strftime(strtime, 512, TIME_FORMAT, localtime(&t));
 		printf("\033[1m%s, (GC):\033[0m Pruned %zu bytes from cache\n", strtime, freed);
 	}
 

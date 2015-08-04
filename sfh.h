@@ -26,6 +26,7 @@
 #define PACKET_SIZE 8192
 #define DATA_DIR "/var/lib/wakaba/"
 #define CONF_DIR "/etc/wakaba/"
+#define TIME_FORMAT "%a %d/%m/%y %I:%M %p"
 
 #define MIN(X, Y) (X < Y ? X : Y)
 

@@ -109,7 +109,7 @@ int database_rm(char *name)
 
 	char strtime[512];
 	time_t t = time(0);
-	strftime(strtime, 512, "%a %d/%m/%y %I:%M", localtime(&t));
+	strftime(strtime, 512, TIME_FORMAT, localtime(&t));
 	printf("\033[1m%s, (database):\033[m File %llx removed\n", strtime, id);
 
 	return 0;

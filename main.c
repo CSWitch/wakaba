@@ -48,7 +48,7 @@ void *cleaner()
 		if (count > 0){
 			char strtime[512];
 			time_t t = time(0);
-			strftime(strtime, 512, "%a %d/%m/%y %I:%M", localtime(&t));
+			strftime(strtime, 512, TIME_FORMAT, localtime(&t));
 			printf("\033[1m%s, (GC):\033[0m Cleaned up %i %s\n", strtime, count, count > 1 ? "threads" : "thread");
 		}
 
@@ -65,7 +65,7 @@ void cleanup()
 {
 	char strtime[512];
 	time_t t = time(0);
-	strftime(strtime, 512, "%a %d/%m/%y %I:%M", localtime(&t));
+	strftime(strtime, 512, TIME_FORMAT, localtime(&t));
 	printf("\033[1m%s, (server):\033[0m Server shutting down\n", strtime);
 
 	pthread_mutex_lock(&cleaner_lock);
@@ -177,7 +177,7 @@ int main()
 
 	char strtime[512];
 	time_t t = time(0);
-	strftime(strtime, 512, "%a %d/%m/%y %I:%M", localtime(&t));
+	strftime(strtime, 512, TIME_FORMAT, localtime(&t));
 	printf("\033[1m%s, (server):\033[0m Server initialized\n", strtime);
 
 	while(1){

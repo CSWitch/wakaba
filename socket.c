@@ -217,7 +217,7 @@ struct client_ctx *socket_nextclient()
 
 	char strtime[512];
 	time_t t = time(0);
-	strftime(strtime, 512, "%a %d/%m/%y %I:%M", localtime(&t));
+	strftime(strtime, 512, TIME_FORMAT, localtime(&t));
 	printf("\033[1m%s, (socket):\033[0m Got connection from %s\n", strtime, cc->str_addr);
 
 	return cc;

@@ -23,7 +23,7 @@ void process_admincmd(struct client_ctx *cc)
 
 	char strtime[512];
 	time_t t = time(0);
-	strftime(strtime, 512, "%a %d/%m/%y %I:%M", localtime(&t));
+	strftime(strtime, 512, TIME_FORMAT, localtime(&t));
 
 	if(strcmp(config->admin_pwd, pwd)){
 		socket_puts(cc, "Access denied\n");
@@ -96,7 +96,7 @@ void *process_request(void *p)
 
 	char strtime[512];
 	time_t t = time(0);
-	strftime(strtime, 512, "%a %d/%m/%y %I:%M", localtime(&t));
+	strftime(strtime, 512, TIME_FORMAT, localtime(&t));
 
 	if (r.type == R_INVALID){
 		switch(errno){

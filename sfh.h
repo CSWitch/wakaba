@@ -21,7 +21,7 @@
 #include <sys/statvfs.h>
 #include <time.h>
 
-#define SERVER_BACKLOG 10
+#define SERVER_BACKLOG 1
 #define PACKET_SIZE 8192
 #define DATA_DIR "/var/lib/wakaba/"
 #define CONF_DIR "/etc/wakaba/"
@@ -29,7 +29,8 @@
 #define MIN(X, Y) (X < Y ? X : Y)
 
 struct config{
-	uint16_t port;
+	uint16_t port_http;
+	uint16_t port_https;
 	size_t max_file_size;
 	size_t max_cache_size;
 	char domainname[128];
@@ -105,6 +106,8 @@ void socket_puts(struct client_ctx *cc, char *str);
 size_t socket_read(struct client_ctx *cc, char *buf, size_t len);
 
 void socket_write(struct client_ctx *cc, char *buf, ssize_t len);
+
+size_t socket_gets(struct client_ctx *cc, char *buf, size_t len);
 
 void http_process_request(struct client_ctx *cc, struct request *r);
 

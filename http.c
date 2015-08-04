@@ -38,7 +38,7 @@ void http_process_request(struct client_ctx *cc, struct request *r)
 	char *buf = calloc(2048, 1);
 	size_t buf_len = 0;
 
-	buf_len = SSL_read(cc->ssl, buf, 2047);
+	buf_len = socket_gets(cc, buf, 2047);
 	if (buf_len <= 0){
 		errno = ENODATA;
 		goto ERROR;

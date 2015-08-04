@@ -121,7 +121,7 @@ void *process_request(void *p)
 
 		printf("\033[1m%s, (request):\033[0m %s: File of %zu bytes uploaded (%llx)\n", strtime, cc->str_addr, r.len, id);
 
-		snprintf(buf, 128, "https://%s:%i/%llx\n", config->domainname, config->port, id);
+		snprintf(buf, 128, "%s://%s:%i/%llx\n", cc->ssl ? "https" : "http", config->domainname, cc->ssl ? config->port_https : config->port_http, id);
 		socket_puts(cc, buf);
 	}else if (r.type == R_GET){
 		char *data = 0;

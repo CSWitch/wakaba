@@ -156,7 +156,7 @@ int main()
 
 	//Shrink user privileges
 	struct passwd *pw = getpwnam(config->username);
-	if (!pw || setuid(pw->pw_uid) == -1 || setgid(pw->pw_gid == (unsigned) -1)){
+	if (!pw || setuid(pw->pw_uid) == -1 || setgid(pw->pw_gid) == (unsigned) -1){
 		printf("\033[1;31mERROR:\033[0m Failed to set user to \"%s\"\n", config->username);
 		return 1;
 	}

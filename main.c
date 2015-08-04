@@ -21,6 +21,8 @@ static struct config conf = {
 
 void *cleaner()
 {
+	prctl(PR_SET_NAME, (char *)"GC", 0, 0, 0);
+
 	while(1){
 		pthread_mutex_lock(&cleaner_lock);
 

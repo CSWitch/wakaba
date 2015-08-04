@@ -101,6 +101,8 @@ struct client_ctx *queue_pop()
 
 void *socket_http_listener()
 {
+	prctl(PR_SET_NAME, (char *)"HTTP", 0, 0, 0);
+
 	while (1){
 		struct client_ctx *cc = socket_listen(&srv_http);
 		if (!cc)
@@ -115,6 +117,8 @@ void *socket_http_listener()
 
 void *socket_https_listener()
 {
+	prctl(PR_SET_NAME, (char *)"HTTPS", 0, 0, 0);
+
 	while (1){
 		struct client_ctx *cc = socket_listen(&srv_https);
 		if (!cc)

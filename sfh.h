@@ -20,6 +20,7 @@
 #include <openssl/err.h>
 #include <sys/statvfs.h>
 #include <time.h>
+#include <sys/prctl.h>
 
 #define SERVER_BACKLOG 1
 #define PACKET_SIZE 8192

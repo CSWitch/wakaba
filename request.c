@@ -88,6 +88,8 @@ void *process_request(void *p)
 	struct client_ctx *cc = p;
 	struct request r;
 
+	prctl(PR_SET_NAME, (char *) cc->str_addr, 0, 0, 0);
+
 	memset(&r, 0, sizeof(r));
 	http_process_request(cc, &r);
 	cc->r = &r;

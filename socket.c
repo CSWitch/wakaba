@@ -21,6 +21,9 @@ static SSL_CTX *ctx;
 static struct lnode *client_queue;
 static size_t queue_size;
 
+static pthread_mutex_t ban_lock = PTHREAD_MUTEX_INITIALIZER;
+static struct lnode *banned;
+
 void socket_clientaddr(struct client_ctx *cc)
 {
 	uint32_t addr = cli.addr.sin_addr.s_addr;
@@ -211,9 +214,31 @@ int socket_initialize()
 	return 0;
 }
 
+int isbanned(struct client_ctx *cc)
+{
+	pthread_mutex_lock(&ban_lock);
+	for (struct lnode *cur = banned; cur; cur = cur->next){
+		char *ip = cur->data;
+		if (!strcmp(ip, cc->str_addr)){
+			pthread_mutex_unlock(&ban_lock);
+			return 1;
+		}
+	}
+	pthread_mutex_unlock(&ban_lock);
+
+	return 0;
+}
+
 struct client_ctx *socket_nextclient()
 {
 	struct client_ctx *cc = queue_pop();
+
+	if (isbanned(cc)){
+		socket_puts(cc, "Banned lol\n");
+		socket_close(cc);
+		free(cc);
+		return 0;
+	}
 
 	char strtime[512];
 	time_t t = time(0);
@@ -232,6 +257,15 @@ void socket_terminate()
 
 	pthread_cancel(https_listener);
 	pthread_join(https_listener, 0);
+
+	pthread_mutex_lock(&ban_lock);
+	struct lnode *cur = banned;
+	while (cur){
+		struct lnode *tmp = cur;
+		cur = cur->next;
+		free(tmp->data);
+		free(tmp);
+	}
 
 	close(srv_http.fd);
 	close(srv_https.fd);
@@ -312,4 +346,27 @@ size_t socket_gets(struct client_ctx *cc, char *buf, size_t len)
 		return SSL_read(cc->ssl, buf, len);
 	else
 		return read(cc->fd, buf, len);
+}
+
+void socket_ban(char *str)
+{
+	char *ip = calloc(strlen(str) + 1, 1);
+	struct lnode *n = calloc(sizeof(*n), 1);
+
+	strcpy(ip, str);
+	n->data = ip;
+	pthread_mutex_lock(&ban_lock);
+	banned = lnode_push(banned, n);
+	pthread_mutex_unlock(&ban_lock);
+}
+
+void socket_listbanned(struct client_ctx *cc)
+{
+	pthread_mutex_lock(&ban_lock);
+	for (struct lnode *cur = banned; cur; cur = cur->next){
+		char *ip = cur->data;
+		socket_puts(cc, ip);
+		socket_puts(cc, "\n");
+	}
+	pthread_mutex_unlock(&ban_lock);
 }

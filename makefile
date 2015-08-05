@@ -3,7 +3,7 @@ CFLAGS = --std=c11 -Wall -Wextra -pedantic -pipe -march=native -mtune=native -pt
 LDFLAGS = -o sfhd -lssl -lcrypto
 
 dev: CC = clang
-dev: CFLAGS += -g -O0 -fsanitize=address
+dev: CFLAGS += -g -O0
 dev: sfhd
 
 release: CFLAGS += -O2 -fstack-protector-all

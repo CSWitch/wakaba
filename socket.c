@@ -96,6 +96,7 @@ struct client_ctx *socket_listen(struct socket *s)
 	
 	if (isbanned(cc)){
 		socket_puts(cc, "Banned lol\n");
+		socket_close(cc);
 		free(cc);
 		return 0;
 	}

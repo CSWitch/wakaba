@@ -24,6 +24,25 @@ static size_t queue_size;
 static pthread_mutex_t ban_lock = PTHREAD_MUTEX_INITIALIZER;
 static struct lnode *banned;
 
+static pthread_mutex_t *openssl_locks;
+
+static void openssl_lock(int mode, int n, const char *file, int line)
+{
+	//Stop the compiler from complaining.
+	line = *file;
+	line++;
+
+	if (mode & CRYPTO_LOCK)
+		pthread_mutex_lock(&openssl_locks[n]);
+	else
+		pthread_mutex_unlock(&openssl_locks[n]);
+}
+
+static unsigned long openssl_id()
+{
+	return (unsigned long) pthread_self();
+}
+
 void socket_clientaddr(struct client_ctx *cc)
 {
 	uint32_t addr = cli.addr.sin_addr.s_addr;
@@ -197,13 +216,15 @@ void socket_loadbans()
 	if (!fp)
 		return;
 
-	pthread_mutex_lock(&ban_lock);
 	while (!feof(fp)){
-		char ip[16];
-		fscanf(fp, "%s\n", ip);
+		char ip[24];
+		size_t len = freadline(fp, ip, 24);
+		if (len < 10) //Minimum length an IP should be, including newline and null byte.
+			break;
+
+		ip[len - 1] = 0; //Strip newline.
 		socket_ban(ip);
 	}
-	pthread_mutex_unlock(&ban_lock);
 
 	fclose(fp);
 }
@@ -248,6 +269,16 @@ int socket_initialize()
 		puts("Key does not match certificate");
 		return 1;
 	}
+
+	size_t num_locks = CRYPTO_num_locks();
+	openssl_locks = malloc(num_locks * sizeof(pthread_mutex_t));
+
+	for (unsigned i = 0; i < num_locks; i++){
+		pthread_mutex_init(&openssl_locks[i], 0);
+	}
+
+	CRYPTO_set_id_callback(openssl_id);
+	CRYPTO_set_locking_callback(openssl_lock);
 
 	return 0;
 }
@@ -316,6 +347,8 @@ void socket_terminate()
 	CRYPTO_cleanup_all_ex_data();
 	EVP_cleanup();
 	SSL_COMP_free_compression_methods();
+
+	free(openssl_locks);
 }
 
 size_t socket_read_plain(struct client_ctx *cc, char *buf, size_t len)

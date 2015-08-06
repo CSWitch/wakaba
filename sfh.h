@@ -201,4 +201,23 @@ static inline void *memmem(void *haystack, size_t haystack_len, void *needle, si
 	return 0;
 }
 
+static inline size_t freadline(FILE *fp, char *buf, size_t n)
+{
+	size_t len = 0;
+
+	while (!feof(fp)){
+		int c = fgetc(fp);
+		if (c == EOF || len >= n)
+			break;
+
+		buf[len++] = (char) c;
+
+		if (c == '\n')
+			break;
+	}
+	buf[len] = 0;
+
+	return len;
+}
+
 #endif

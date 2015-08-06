@@ -67,6 +67,21 @@ void socket_puts(struct client_ctx *cc, char *str)
 		write(cc->fd, str, strlen(str));
 }
 
+int isbanned(struct client_ctx *cc)
+{
+	pthread_mutex_lock(&ban_lock);
+	for (struct lnode *cur = banned; cur; cur = cur->next){
+		char *ip = cur->data;
+		if (!strcmp(ip, cc->str_addr)){
+			pthread_mutex_unlock(&ban_lock);
+			return 1;
+		}
+	}
+	pthread_mutex_unlock(&ban_lock);
+
+	return 0;
+}
+
 struct client_ctx *socket_listen(struct socket *s)
 {
 	socklen_t len = sizeof(struct sockaddr_in);
@@ -78,6 +93,12 @@ struct client_ctx *socket_listen(struct socket *s)
 
 	cc->fd = fd;
 	socket_clientaddr(cc);
+	
+	if (isbanned(cc)){
+		socket_puts(cc, "Banned lol\n");
+		free(cc);
+		return 0;
+	}
 
 	return cc;
 }
@@ -283,31 +304,9 @@ int socket_initialize()
 	return 0;
 }
 
-int isbanned(struct client_ctx *cc)
-{
-	pthread_mutex_lock(&ban_lock);
-	for (struct lnode *cur = banned; cur; cur = cur->next){
-		char *ip = cur->data;
-		if (!strcmp(ip, cc->str_addr)){
-			pthread_mutex_unlock(&ban_lock);
-			return 1;
-		}
-	}
-	pthread_mutex_unlock(&ban_lock);
-
-	return 0;
-}
-
 struct client_ctx *socket_nextclient()
 {
 	struct client_ctx *cc = queue_pop();
-
-	if (isbanned(cc)){
-		socket_puts(cc, "Banned lol\n");
-		socket_close(cc);
-		free(cc);
-		return 0;
-	}
 
 	char strtime[512];
 	time_t t = time(0);

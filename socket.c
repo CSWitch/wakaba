@@ -172,8 +172,46 @@ int socket_new(struct socket *s, uint16_t port)
 	return 0;
 }
 
+void socket_writebans()
+{
+	if (!banned)
+		return;
+
+	FILE *fp = fopen(DATA_DIR "/banned.txt", "w");
+	if (!fp)
+		return;
+
+	pthread_mutex_lock(&ban_lock);
+	for (struct lnode *cur = banned; cur; cur = cur->next){
+		char *ip = cur->data;
+		fprintf(fp, "%s\n", ip);
+	}
+	pthread_mutex_unlock(&ban_lock);
+
+	fclose(fp);
+}
+
+void socket_loadbans()
+{
+	FILE *fp = fopen(DATA_DIR "/banned.txt", "r");
+	if (!fp)
+		return;
+
+	pthread_mutex_lock(&ban_lock);
+	while (!feof(fp)){
+		char ip[16];
+		fscanf(fp, "%s\n", ip);
+		socket_ban(ip);
+	}
+	pthread_mutex_unlock(&ban_lock);
+
+	fclose(fp);
+}
+
 int socket_initialize()
 {
+	socket_loadbans();
+
 	if (socket_new(&srv_http, config->port_http))
 		return 1;
 	if (socket_new(&srv_https, config->port_https))
@@ -257,6 +295,8 @@ void socket_terminate()
 
 	pthread_cancel(https_listener);
 	pthread_join(https_listener, 0);
+
+	socket_writebans();
 
 	pthread_mutex_lock(&ban_lock);
 	struct lnode *cur = banned;

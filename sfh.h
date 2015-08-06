@@ -115,6 +115,8 @@ void socket_ban(char *str);
 
 void socket_listbanned(struct client_ctx *cc);
 
+void socket_writebans();
+
 void http_process_request(struct client_ctx *cc, struct request *r);
 
 unsigned long long database_push(char *data, size_t len);

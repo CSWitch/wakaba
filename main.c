@@ -52,6 +52,7 @@ void *cleaner()
 			printf("\033[1m%s, (GC):\033[0m Cleaned up %i %s\n", strtime, count, count > 1 ? "threads" : "thread");
 		}
 
+		socket_writebans();
 		database_flush();
 		cache_prune();
 

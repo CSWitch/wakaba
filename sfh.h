@@ -2,6 +2,8 @@
 #define SFH_H
 
 #define _POSIX_SOURCE
+#define _POSIX_C_SOURCE 199309L
+#define _DEFAULT_SOURCE
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,6 +24,7 @@
 #include <sys/statvfs.h>
 #include <time.h>
 #include <sys/prctl.h>
+#include <dirent.h>
 
 #define SERVER_BACKLOG 1
 #define PACKET_SIZE 8192

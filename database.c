@@ -37,6 +37,12 @@ char *database_read(struct file_entry *fe)
 	if (!fp)
 		return 0;
 
+	if (fe->len == 0){
+		fseek(fp, 0, SEEK_END);
+		fe->len = ftell(fp);
+		fseek(fp, 0, SEEK_SET);
+	}
+
 	data = malloc(fe->len);
 	fread(data, 1, fe->len, fp);
 
@@ -167,7 +173,7 @@ size_t database_getfile(char *name, char **datap)
 	struct file_entry *entry = 0;
 	char *err = 0;
 	unsigned long long id = strtoull(name, &err, 16);
-	if ((!id && errno == EINVAL) || (err && isalpha(*err))){
+	if ((!id && errno == EINVAL) || (err && *err)){
 		errno = 0;
 		return 0;
 	}
@@ -217,8 +223,39 @@ int database_init()
 		return 0;
 
 	FILE *fp = fopen(DATA_DIR "/database.txt", "r");
-	if (!fp)
-		return 1;
+
+	if (!fp){ //Generate database.txt from contents on FS.
+		fp = fopen(DATA_DIR "/database.txt", "w");
+		DIR *dp = opendir(DATA_DIR "/database/");
+		struct dirent *ent = 0;
+		if (!dp){
+			fclose(fp);
+			return 1;
+		}
+
+		while ((ent = readdir(dp))){
+			if (ent->d_name[0] == '.' || ent->d_type == DT_DIR)
+				continue;
+
+			struct file_entry fe;
+			char *end = 0;
+			char *data = 0;
+
+			fe.id = strtoull(ent->d_name, &end, 16);
+			if (end && *end)
+				continue;
+			fe.len = 0; //Will be filled in by database_read.
+			data = database_read(&fe);
+			hash(data, fe.len, fe.hash);
+
+			fprintf(fp, "%llx %zu %s\n", fe.id, fe.len, fe.hash);
+			free(data);
+		}
+
+		closedir(dp);
+		fclose(fp);
+		fp = fopen(DATA_DIR "/database.txt", "r");
+	}
 
 	while(!feof(fp)){
 		struct lnode *n = calloc(sizeof(struct lnode), 1);

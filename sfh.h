@@ -18,6 +18,7 @@
 #include <ctype.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
+#include <openssl/sha.h>
 #include <sys/statvfs.h>
 #include <time.h>
 #include <sys/prctl.h>
@@ -27,6 +28,7 @@
 #define DATA_DIR "/var/lib/wakaba/"
 #define CONF_DIR "/etc/wakaba/"
 #define TIME_FORMAT "%a %d/%m/%y %I:%M %p"
+#define HASH_STRLEN 65
 
 #define MIN(X, Y) (X < Y ? X : Y)
 

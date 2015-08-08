@@ -3,6 +3,7 @@
 struct file_entry{
 	size_t len;
 	unsigned long long id;
+	char hash[HASH_STRLEN];
 };
 
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
@@ -43,18 +44,65 @@ char *database_read(struct file_entry *fe)
 	return data;
 }
 
+void printhash(unsigned char *hash, char *buf)
+{
+	for (int i = 0; i < SHA256_DIGEST_LENGTH; i++){
+		buf += sprintf(buf, "%02x", hash[i]);
+	}
+
+	buf[0] = 0;
+}
+
+void hash(char *data, size_t len, char *buf)
+{
+	unsigned char hash[SHA256_DIGEST_LENGTH];
+
+	SHA256_CTX ctx;
+	SHA256_Init(&ctx);
+
+	SHA256_Update(&ctx, data, len);
+	SHA256_Final(hash, &ctx);
+
+	printhash(hash, buf);
+}
+
+char exists(char *hash, unsigned long long *id)
+{
+	pthread_mutex_lock(&lock);
+	for (struct lnode *cur = file_list; cur; cur = cur->next){
+		struct file_entry *fe = cur->data;
+		if (!strcmp(fe->hash, hash)){
+			if (id)
+				*id = fe->id;
+			pthread_mutex_unlock(&lock);
+			return 1;
+		}
+	}
+	pthread_mutex_unlock(&lock);
+
+	return 0;
+}
+
 unsigned long long database_push(char *data, size_t len)
 {
 	struct lnode *n = calloc(sizeof(struct lnode), 1);
 	struct file_entry *fe = calloc(sizeof(struct file_entry), 1);
 
-	pthread_mutex_lock(&lock);
+	hash(data, len, fe->hash);
+	unsigned long long id = 0;
+	if (exists(fe->hash, &id)){
+		free(fe);
+		free(n);
+		errno = EEXIST;
+		return id;
+	}
 
 	fe->len = len;
 	fe->id = next_id++;
 	n->data = fe;
-	file_list = lnode_push(file_list, n);
 
+	pthread_mutex_lock(&lock);
+	file_list = lnode_push(file_list, n);
 	pthread_mutex_unlock(&lock);
 
 	database_write(fe, data);
@@ -103,14 +151,13 @@ int database_rm(char *name)
 	database_pop(node);
 	cache_rm(id);
 
-	char path[512];
-	snprintf(path, 512, DATA_DIR "/database/%llx", id);
-	remove(path);
+	char buf[512];
+	snprintf(buf, 512, DATA_DIR "/database/%llx", id);
+	remove(buf);
 
-	char strtime[512];
 	time_t t = time(0);
-	strftime(strtime, 512, TIME_FORMAT, localtime(&t));
-	printf("\033[1m%s, (database):\033[m File %llx removed\n", strtime, id);
+	strftime(buf, 512, TIME_FORMAT, localtime(&t));
+	printf("\033[1m%s, (database):\033[m File %llx removed\n", buf, id);
 
 	return 0;
 }
@@ -155,7 +202,7 @@ size_t database_getfile(char *name, char **datap)
 	return 0;
 }
 
-int database_isonfs(unsigned long long id)
+int isonfs(unsigned long long id)
 {
 	char name[256];
 	serialize_id(id, name, 256);
@@ -176,9 +223,24 @@ int database_init()
 	while(!feof(fp)){
 		struct lnode *n = calloc(sizeof(struct lnode), 1);
 		struct file_entry *fe = calloc(sizeof(struct file_entry), 1);
-		fscanf(fp, "%llx %zu\n", &fe->id, &fe->len);
+		fscanf(fp, "%llx %zu %s\n", &fe->id, &fe->len, fe->hash);
 
-		if (fe->len == 0 && fe->id == 0){ //Not a valid entry.
+		if (fe->len == 0 || !isonfs(fe->id)){ //Not a valid entry.
+			free(n);
+			free(fe);
+			continue;
+		}
+
+		if (!strcmp(fe->hash, "0")){ //File has no hash, generate one.
+			char *data = database_read(fe);
+			hash(data, fe->len, fe->hash);
+			free(data);
+		}
+
+		if (exists(fe->hash, 0)){ //Check if file is already in DB.
+			char buf[512];
+			snprintf(buf, 512, DATA_DIR "/database/%llx", fe->id);
+			remove(buf);
 			free(n);
 			free(fe);
 			continue;
@@ -220,7 +282,7 @@ int database_flush()
 
 	for (struct lnode *cur = listend(file_list); cur; cur = cur->prev){
 		struct file_entry *fe = cur->data;
-		fprintf(fp, "%llx %zu\n", fe->id, fe->len);
+		fprintf(fp, "%llx %zu %s\n", fe->id, fe->len, fe->hash);
 	}
 
 	fclose(fp);

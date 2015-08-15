@@ -33,7 +33,7 @@
 #define TIME_FORMAT "%a %d/%m/%y %I:%M %p"
 #define HASH_STRLEN 65
 
-#define MIN(X, Y) (X < Y ? X : Y)
+#define MIN(X, Y) ((X) < (Y) ? (X) : (Y))
 
 struct config{
 	uint16_t port_http;
@@ -62,6 +62,7 @@ enum request_type{
 struct request{
 	enum request_type type;
 	char filename[128];
+	char referer[256];
 	size_t len;
 	char *data;
 };

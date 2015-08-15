@@ -81,7 +81,7 @@ void process_admincmd(struct client_ctx *cc)
 		socket_ban(ip);
 		socket_puts(cc, "IP banned\n");
 	}else if (strstr(cmd, "listbans") == cmd){ //View bans.
-		socket_puts(cc, "Banned IP's\n");
+		socket_puts(cc, "Banned IP's:\n");
 		socket_listbanned(cc);
 	}else{ //Print help.
 		socket_puts(cc,
@@ -159,7 +159,7 @@ void *process_request(void *p)
 			goto RET;
 		}
 
-		printf("\033[1m%s, (request):\033[0m %s: File %s requested\n", strtime, cc->str_addr, r.filename);
+		printf("\033[1m%s, (request):\033[0m %s: File %s requested (ref: \033[1m%s\033[0m)\n", strtime, cc->str_addr, r.filename, r.referer[0] ? r.referer : "none");
 
 		snprintf(http_header, 2048, "HTTP/1.0 200 OK\r\nContent-Length: %zu\r\nExpires: Sun, 17-jan-2038 19:14:07 GMT\r\n\r\n", len);
 		socket_puts(cc, http_header);

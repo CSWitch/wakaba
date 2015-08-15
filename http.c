@@ -156,6 +156,22 @@ void http_process_request(struct client_ctx *cc, struct request *r)
 		strncpy(r->filename, filename, fn_len);
 		r->filename[fn_len] = 0;
 
+		//Get referer, for non NSA reasons ofcourse, i swear.
+		char *ref = http_get_field(buf, "Referer: ");
+		char *ref_end = 0;
+		size_t ref_len = 0;
+		if (ref){
+			ref_end = strstr(ref, "\r\n");
+			if (!ref_end){
+				errno = EINVAL;
+				goto ERROR;
+			}
+
+			ref_len = MIN((ref_end - ref), 255);
+			strncpy(r->referer, ref, ref_len + 1);
+			r->referer[ref_len] = 0;
+		}
+
 		//Check if admin command.
 		if (r->filename[0] == '$'){
 			free(buf);

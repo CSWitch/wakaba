@@ -164,7 +164,7 @@ void http_process_request(struct client_ctx *cc, struct request *r)
 		}
 
 		//Protect against common exploits.
-		if (!r->filename[0] || strchr(r->filename, '/') || strstr(r->filename, "..")){
+		if (!r->filename[0] || strchr(r->filename, '/') || !strstr(r->filename, "..")){
 			errno = EINVAL;
 			goto ERROR;
 		}

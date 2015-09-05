@@ -25,6 +25,7 @@
 #include <time.h>
 #include <sys/prctl.h>
 #include <dirent.h>
+#include <execinfo.h>
 
 #define SERVER_BACKLOG 1
 #define PACKET_SIZE 8192
@@ -224,6 +225,39 @@ static inline size_t freadline(FILE *fp, char *buf, size_t n)
 	buf[len] = 0;
 
 	return len;
+}
+
+static inline char *strprint(char *str)
+{
+	while (*str && !isprint(*str))
+		str++;
+
+	return str;
+}
+
+static inline char *strcasestr(char *haystack, char *needle)
+{
+	size_t needle_len = strlen(needle);
+
+	while (*haystack){
+		char *hp = haystack;
+		char *np = needle;
+		size_t match = 0;
+
+		while (*np && *hp){
+			char hc = tolower(*hp);
+			char nc = tolower(*np);
+			if (nc != hc) break;
+			match++;
+			hp++;
+			np++;
+		}
+
+		if (match >= needle_len) return haystack;
+		haystack++;
+	}
+
+	return 0;
 }
 
 #endif

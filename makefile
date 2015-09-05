@@ -6,8 +6,7 @@ dev: CC = clang
 dev: CFLAGS += -g -O0 -fsanitize=address
 dev: sfhd
 
-release: CFLAGS += -O2 -fstack-protector-all
-release: LDFLAGS += -s
+release: CFLAGS += -O2 -g -fno-omit-frame-pointer -rdynamic -fstack-protector-all
 release: sfhd
 
 sfhd: main.o socket.o http.o database.o cache.o request.o *.h

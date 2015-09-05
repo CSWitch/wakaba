@@ -5,14 +5,14 @@ char *http_get_field(char *buf, char *name)
 	char *attr = 0;
 	char *val = 0;
 
-	attr = strstr(buf, name);
-	if (!attr)
-		return 0;
+	attr = strcasestr(buf, name);
+	if (!attr) return 0;
 
 	val = strchr(attr, ':');
-	if (!val)
-		return 0;
-	val += 2;
+	if (!val) return 0;
+
+	val++;
+	if (isspace(*val)) val = strprint(val);
 
 	return val;
 }
@@ -57,8 +57,8 @@ void http_process_request(struct client_ctx *cc, struct request *r)
 	if (r->type == R_POST){
 		char header[2048];
 		char boundary[256];
-		size_t header_len;
-		size_t content_length; //Length as reported by HTTP header.
+		size_t header_len = 0;
+		size_t content_length = 0; //Length as reported by HTTP header.
 
 		//Some (retarded) browsers (like Firefox) like to send the body in the same packet as the header, so:
 		//Move header into it's own buffer, and move body to front of buf.
@@ -72,8 +72,9 @@ void http_process_request(struct client_ctx *cc, struct request *r)
 		memmove(buf, buf + header_len, buf_len);
 
 		//Make sure header sends Content-Length.
-		content_length = strtol(http_get_field(header, "Content-Length: "), 0, 10);
-		if (!content_length){
+		char *clf = http_get_field(header, "Content-Length:");
+		if (clf) content_length = strtol(clf, 0, 10);
+		if (!clf || !content_length){
 			errno = EINVAL;
 			goto ERROR;
 		}
@@ -96,7 +97,7 @@ void http_process_request(struct client_ctx *cc, struct request *r)
 		boundary[b_len] = 0;
 
 		//Send 100-continue if needed.
-		if (strstr(header, "Expect: 100-continue"))
+		if (strcasestr(header, "Expect: 100-continue"))
 			socket_puts(cc, "HTTP/1.0 100 Continue\r\n\r\n");
 
 		//Expand buf and read in rest of the body.
@@ -157,7 +158,7 @@ void http_process_request(struct client_ctx *cc, struct request *r)
 		r->filename[fn_len] = 0;
 
 		//Get referer, for non NSA reasons ofcourse, i swear.
-		char *ref = http_get_field(buf, "Referer: ");
+		char *ref = http_get_field(buf, "Referer:");
 		char *ref_end = 0;
 		size_t ref_len = 0;
 		if (ref){
@@ -186,7 +187,7 @@ void http_process_request(struct client_ctx *cc, struct request *r)
 		}
 
 		//Check if the client has already cached this file.
-		if (config->browser_cache && strstr(buf, "Cache-Control: "))
+		if (config->browser_cache && strcasestr(buf, "Cache-Control:"))
 			r->type = R_CACHED;
 
 		free(buf);

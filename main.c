@@ -96,6 +96,16 @@ void sigterm()
 	exit(0);
 }
 
+void sigsegv()
+{
+	void *bt[20];
+	size_t len = backtrace(bt, 20);
+
+	fputs("Killed by SIGSEGV, fix your fucking program:\n", stderr);
+	backtrace_symbols_fd(bt, len, STDERR_FILENO);
+	exit(1);
+}
+
 int load_config()
 {
 	FILE *fp = fopen(CONF_DIR "wakaba.conf", "r");
@@ -166,9 +176,14 @@ int main()
 
 	struct sigaction sa;
 	memset(&sa, 0, sizeof(sa));
+
 	sa.sa_handler = sigterm;
 	sigaction(SIGTERM, &sa, 0);
 	sigaction(SIGINT, &sa, 0);
+
+	sa.sa_handler = sigsegv;
+	sigaction(SIGSEGV, &sa, 0);
+
 	sa.sa_handler = SIG_IGN;
 	sigaction(SIGPIPE, &sa, 0);
 

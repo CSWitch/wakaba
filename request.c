@@ -172,6 +172,8 @@ void *process_request(void *p)
 			goto RET;
 		}
 
+		printf("\033[1m%s, (request):\033[0m %s: Browser-cached file %s requested (ref: \033[1m%s\033[0m)\n", strtime, cc->str_addr, r.filename, r.referer[0] ? r.referer : "none");
+
 		socket_puts(cc, http_header);
 	}
 

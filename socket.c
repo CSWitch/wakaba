@@ -95,7 +95,7 @@ struct client_ctx *socket_listen(struct socket *s)
 	socket_clientaddr(cc);
 	
 	if (isbanned(cc)){
-		socket_puts(cc, "Banned lol\n");
+		socket_puts(cc, HTTP_200 "Banned lol\n");
 		socket_close(cc);
 		free(cc);
 		return 0;
@@ -107,7 +107,7 @@ struct client_ctx *socket_listen(struct socket *s)
 void queue_push(struct lnode *n, struct client_ctx *cc)
 {
 	if (queue_size >= SERVER_BACKLOG){
-		socket_puts(cc, "Server too overloaded\n");
+		socket_puts(cc, HTTP_200 "Server too overloaded\n");
 		free(cc);
 		free(n);
 		return;
@@ -176,7 +176,7 @@ void *socket_https_listener()
 			ERR_print_errors_fp(stderr);
 			SSL_free(cc->ssl);
 			cc->ssl = 0;
-			socket_puts(cc, "Use HTTPS you fag\n");
+			socket_puts(cc, HTTP_200 "Use HTTPS you fag\n");
 			socket_close(cc);
 			free(cc);
 			free(n);

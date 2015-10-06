@@ -7,7 +7,7 @@ void process_admincmd(struct client_ctx *cc)
 	char *cmd = cc->r->filename + 1;
 
 	if (!config->admin_pwd[0]){
-		socket_puts(cc, "Administration disabled (no password set)\n");
+		socket_puts(cc, HTTP_200 "Administration disabled (no password set)\n");
 		return;
 	}
 
@@ -16,7 +16,7 @@ void process_admincmd(struct client_ctx *cc)
 	char *pwd_delim = strchr(cmd, ':');
 	size_t pwd_len = 0;
 	if (!pwd_delim){
-		socket_puts(cc, "Password required\n");
+		socket_puts(cc, HTTP_200 "Password required\n");
 		return;
 	}
 	pwd_len = MIN(pwd_delim - cmd, 127);
@@ -28,8 +28,8 @@ void process_admincmd(struct client_ctx *cc)
 	strftime(strtime, 512, TIME_FORMAT, localtime(&t));
 
 	if(strcmp(config->admin_pwd, pwd)){
-		socket_puts(cc, "Access denied\n");
-		printf("\033[1m%s, \033[31m(admin)\033[0;1m:\033[0m %s: Incorrect password (%s)\n", strtime, cc->str_addr, pwd);
+		socket_puts(cc, HTTP_200 "Access denied\n");
+		printf("\033[1m%s, \033[31m(admin)\033[0;1m:\033[0m %s: Incorrect password\n", strtime, cc->str_addr);
 		return;
 	}
 	cmd = pwd_delim + 1;
@@ -46,6 +46,7 @@ void process_admincmd(struct client_ctx *cc)
 
 		database_getstats(&stats);
 		snprintf(buf, 1024,
+				HTTP_200
 				"Disk: %.2f/%.2f MB\n"
 				"Cache: %.2f/%.2f MB\n"
 				"Files: %zu (%zu cached)\n",
@@ -55,36 +56,39 @@ void process_admincmd(struct client_ctx *cc)
 		);
 		socket_puts(cc, buf);
 	}else if (strstr(cmd, "shutdown") == cmd){ //Shutdown server.
-		socket_puts(cc, "Shutting down server\n");
+		socket_puts(cc, HTTP_200 "Shutting down server\n");
 		kill(getpid(), SIGTERM);
 	}else if (strstr(cmd, "rm") == cmd){ //Remove file.
 		char *name = strchr(cmd, '=');
 		if (!name){
+			socket_puts(cc, HTTP_200);
 			socket_puts(cc, err_inv);
 			return;
 		}
 		name++;
 
 		if (database_rm(name)){
-			socket_puts(cc, "File not found in database\n");
+			socket_puts(cc, HTTP_200 "File not found in database\n");
 			return;
 		}
 		socket_puts(cc, "File removed from database\n");
 	}else if (strstr(cmd, "ban") == cmd){ //Ban IP.
 		char *ip = strchr(cmd, '=');
 		if (!ip){
+			socket_puts(cc, HTTP_200);
 			socket_puts(cc, err_inv);
 			return;
 		}
 		ip++;
 
 		socket_ban(ip);
-		socket_puts(cc, "IP banned\n");
+		socket_puts(cc, HTTP_200 "IP banned\n");
 	}else if (strstr(cmd, "listbans") == cmd){ //View bans.
-		socket_puts(cc, "Banned IP's:\n");
+		socket_puts(cc, HTTP_200 "Banned IP's:\n");
 		socket_listbanned(cc);
 	}else{ //Print help.
 		socket_puts(cc,
+				HTTP_200
 				"Available commands:\n"
 				"stats - print database statistics\n"
 				"shutdown - gracefully terminate server\n"
@@ -116,6 +120,7 @@ void *process_request(void *p)
 	strftime(strtime, 512, TIME_FORMAT, localtime(&t));
 
 	if (r.type == R_INVALID){
+		socket_puts(cc, HTTP_200);
 		switch(errno){
 			case EFBIG:
 				socket_puts(cc, err_toolarge);
@@ -139,6 +144,7 @@ void *process_request(void *p)
 		unsigned long long id = database_push(r.data, r.len);
 		char buf[128];
 
+		socket_puts(cc, HTTP_200);
 		if (errno == EEXIST){
 			socket_puts(cc, "Duplicate detected, already exists here:\n");
 			free(r.data);
@@ -155,6 +161,7 @@ void *process_request(void *p)
 		char http_header[2048];
 
 		if (!data){
+			socket_puts(cc, HTTP_200);
 			socket_puts(cc, err_notfound);
 			goto RET;
 		}
@@ -168,6 +175,7 @@ void *process_request(void *p)
 		char *http_header = "HTTP/1.0 304 Not Modified\r\n\r\n";
 
 		if (!database_getfile(r.filename, 0)){
+			socket_puts(cc, HTTP_200);
 			socket_puts(cc, err_notfound);
 			goto RET;
 		}

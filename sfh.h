@@ -33,6 +33,7 @@
 #define CONF_DIR "/etc/wakaba/"
 #define TIME_FORMAT "%a %d/%m/%y %I:%M %p"
 #define HASH_STRLEN 65
+#define HTTP_200 "HTTP/1.0 200 OK\r\n\r\n"
 
 #define MIN(X, Y) ((X) < (Y) ? (X) : (Y))
 

@@ -1,6 +1,6 @@
 #include "sfh.h"
 
-#define gen_post_response(CC, BUF, LEN, ID) {snprintf(buf, 128, "%s://%s:%i/%llx\n", cc->ssl ? "https" : "http", config->domainname, cc->ssl ? config->port_https : config->port_http, id);}
+#define gen_post_response(CC, BUF, LEN, ID) {snprintf(buf, 128, "%s/%llx\n", config->domainname, id);}
 
 void process_admincmd(struct client_ctx *cc)
 {

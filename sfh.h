@@ -39,7 +39,6 @@
 
 struct config{
 	uint16_t port_http;
-	size_t max_file_size;
 	size_t max_cache_size;
 	char domainname[128];
 	char username[128];

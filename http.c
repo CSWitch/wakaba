@@ -79,11 +79,6 @@ void http_process_request(struct client_ctx *cc, struct request *r)
 			goto ERROR;
 		}
 
-		if (content_length > config->max_file_size){
-			errno = EFBIG;
-			goto ERROR;
-		}
-
 		//Make sure encoding is multipart/form-data and extract the boundary.
 		size_t b_len = 0;
 		char *bp = http_get_field(header, "Content-Type: multipart/form-data; boundary=");

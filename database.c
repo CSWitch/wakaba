@@ -89,12 +89,12 @@ char exists(char *hash, unsigned long long *id)
 	return 0;
 }
 
-unsigned long long database_push(char *data, size_t len)
+unsigned long long database_push(struct request *r)
 {
 	struct lnode *n = calloc(sizeof(struct lnode), 1);
 	struct file_entry *fe = calloc(sizeof(struct file_entry), 1);
 
-	hash(data, len, fe->hash);
+	hash(r->data, r->len, fe->hash);
 	unsigned long long id = 0;
 	if (exists(fe->hash, &id)){
 		free(fe);
@@ -103,7 +103,7 @@ unsigned long long database_push(char *data, size_t len)
 		return id;
 	}
 
-	fe->len = len;
+	fe->len = r->len;
 	fe->id = next_id++;
 	n->data = fe;
 
@@ -111,9 +111,9 @@ unsigned long long database_push(char *data, size_t len)
 	file_list = lnode_push(file_list, n);
 	pthread_mutex_unlock(&lock);
 
-	database_write(fe, data);
+	database_write(fe, r->data);
 
-	cache_push(data, len, fe->id);
+	cache_push(r->data, r->len, fe->id);
 
 	return fe->id;
 }
@@ -168,22 +168,23 @@ int database_rm(char *name)
 	return 0;
 }
 
-size_t database_getfile(char *name, char **datap)
+void database_getfile(struct request *r)
 {
 	struct file_entry *entry = 0;
 	char *err = 0;
-	unsigned long long id = strtoull(name, &err, 16);
+	unsigned long long id = strtoull(r->filename, &err, 16);
 	if ((!id && errno == EINVAL) || (err && *err)){
 		errno = 0;
-		return 0;
+		r->data = 0;
+		return;
 	}
 
 	//Check the cache first.
 	struct cache_entry *ce = cache_get(id);
 	if (ce){
-		if (datap)
-			*datap = ce->data;
-		return ce->len;
+		r->data = ce->data;
+		r->len = ce->len;
+		return;
 	}
 
 	struct lnode *n = database_get(id);
@@ -192,20 +193,19 @@ size_t database_getfile(char *name, char **datap)
 		entry = n->data;
 		char *data = database_read(entry);
 
-		if (!data)
-			return 0;
+		if (!data){
+			r->data = 0;
+			return;
+		}
 
-		if (datap)
-			*datap = data;
+		r->data = data;
 
 		//Put back in cache.
 		if (!ce)
 			cache_push(data, entry->len, entry->id);
 
-		return entry->len;
+		r->len = entry->len;
 	}
-
-	return 0;
 }
 
 int isonfs(unsigned long long id)

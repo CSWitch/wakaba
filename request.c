@@ -141,7 +141,7 @@ void *process_request(void *p)
 		process_admincmd(cc);
 	}else if (r.type == R_POST){
 		errno = 0;
-		unsigned long long id = database_push(r.data, r.len);
+		unsigned long long id = database_push(&r);
 		char buf[128];
 
 		socket_puts(cc, HTTP_200);
@@ -156,11 +156,10 @@ void *process_request(void *p)
 		gen_post_response(cc, buf, 128, id);
 		socket_puts(cc, buf);
 	}else if (r.type == R_GET){
-		char *data = 0;
-		size_t len = database_getfile(r.filename, &data);
+		database_getfile(&r);
 		char http_header[2048];
 
-		if (!data){
+		if (!r.data){
 			socket_puts(cc, HTTP_200);
 			socket_puts(cc, err_notfound);
 			goto RET;
@@ -168,13 +167,14 @@ void *process_request(void *p)
 
 		printf("\033[1m%s, (request):\033[0m %s: File %s requested (ref: \033[1m%s\033[0m)\n", strtime, cc->str_addr, r.filename, r.referer[0] ? r.referer : "none");
 
-		snprintf(http_header, 2048, "HTTP/1.0 200 OK\r\nContent-Length: %zu\r\nExpires: Sun, 17-jan-2038 19:14:07 GMT\r\n\r\n", len);
+		snprintf(http_header, 2048, "HTTP/1.0 200 OK\r\nContent-Length: %zu\r\nExpires: Sun, 17-jan-2038 19:14:07 GMT\r\n\r\n", r.len);
 		socket_puts(cc, http_header);
-		socket_write(cc, data, len);
+		socket_write(cc, r.data, r.len);
 	}else if (r.type == R_CACHED){
 		char *http_header = "HTTP/1.0 304 Not Modified\r\n\r\n";
 
-		if (!database_getfile(r.filename, 0)){
+		database_getfile(&r);
+		if (!r.data){
 			socket_puts(cc, HTTP_200);
 			socket_puts(cc, err_notfound);
 			goto RET;

@@ -26,6 +26,7 @@
 #include <sys/prctl.h>
 #include <dirent.h>
 #include <execinfo.h>
+#include <assert.h>
 
 #define SERVER_BACKLOG 1
 #define PACKET_SIZE 8192
@@ -65,6 +66,7 @@ struct request{
 	enum request_type type;
 	char filename[128];
 	char referer[256];
+	char ext[32];
 	size_t len;
 	char *data;
 };
@@ -127,9 +129,9 @@ void socket_writebans();
 
 void http_process_request(struct client_ctx *cc, struct request *r);
 
-unsigned long long database_push(char *data, size_t len);
+unsigned long long database_push(struct request *r);
 
-size_t database_getfile(char *name, char **datap);
+void database_getfile(struct request *r);
 
 void database_terminate();
 

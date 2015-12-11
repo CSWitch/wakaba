@@ -115,6 +115,31 @@ void http_process_request(struct client_ctx *cc, struct request *r)
 		char *end = 0;
 		size_t file_len = 0;
 
+		// Get filename extension if provided.
+		start = strstr(buf, "filename=\"");
+		if (start){
+			// Just re-using variables.
+			// Honestly i should just start lexing this shit because this is ugly as all hell.
+			start = strchr(start, '"');
+			end = strchr(++start, '"');
+			if (!end){
+				errno = EINVAL;
+				goto ERROR;
+			}
+			file_len = end - start;
+			char name[file_len + 1];
+			strncpy(name, start, file_len);
+			name[file_len] = 0;
+			start = strrchr(name + 1, '.');
+			if (start){
+				start += 1;
+				file_len = MIN(strlen(start), 31);
+				strncpy(r->ext, start, file_len);
+				r->ext[file_len] = 0;
+				puts(r->ext);
+			}
+		}
+
 		//Skip header information.
 		start = strstr(buf, "\r\n\r\n");
 		if (!start){

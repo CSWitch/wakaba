@@ -16,9 +16,6 @@ static pthread_mutex_t avail_lock = PTHREAD_MUTEX_INITIALIZER;
 static struct lnode *client_queue;
 static size_t queue_size;
 
-static pthread_mutex_t ban_lock = PTHREAD_MUTEX_INITIALIZER;
-static struct lnode *banned;
-
 void socket_clientaddr(struct client_ctx *cc)
 {
 	uint32_t addr = cli.addr.sin_addr.s_addr;
@@ -38,21 +35,6 @@ void socket_puts(struct client_ctx *cc, char *str)
 	write(cc->fd, str, strlen(str));
 }
 
-int isbanned(struct client_ctx *cc)
-{
-	pthread_mutex_lock(&ban_lock);
-	for (struct lnode *cur = banned; cur; cur = cur->next){
-		char *ip = cur->data;
-		if (!strcmp(ip, cc->str_addr)){
-			pthread_mutex_unlock(&ban_lock);
-			return 1;
-		}
-	}
-	pthread_mutex_unlock(&ban_lock);
-
-	return 0;
-}
-
 struct client_ctx *socket_listen(struct socket *s)
 {
 	socklen_t len = sizeof(struct sockaddr_in);
@@ -65,13 +47,6 @@ struct client_ctx *socket_listen(struct socket *s)
 	cc->fd = fd;
 	socket_clientaddr(cc);
 	
-	if (isbanned(cc)){
-		socket_puts(cc, HTTP_200 "Banned lol\n");
-		socket_close(cc);
-		free(cc);
-		return 0;
-	}
-
 	return cc;
 }
 
@@ -120,8 +95,7 @@ void *socket_http_listener()
 
 	while (1){
 		struct client_ctx *cc = socket_listen(&srv_http);
-		if (!cc)
-			continue;
+		if (!cc) continue;
 		struct lnode *n = calloc(sizeof(*n), 1);
 
 		queue_push(n, cc);
@@ -154,48 +128,8 @@ int socket_new(struct socket *s, uint16_t port)
 	return 0;
 }
 
-void socket_writebans()
-{
-	if (!banned)
-		return;
-
-	FILE *fp = fopen(DATA_DIR "/banned.txt", "w");
-	if (!fp)
-		return;
-
-	pthread_mutex_lock(&ban_lock);
-	for (struct lnode *cur = banned; cur; cur = cur->next){
-		char *ip = cur->data;
-		fprintf(fp, "%s\n", ip);
-	}
-	pthread_mutex_unlock(&ban_lock);
-
-	fclose(fp);
-}
-
-void socket_loadbans()
-{
-	FILE *fp = fopen(DATA_DIR "/banned.txt", "r");
-	if (!fp)
-		return;
-
-	while (!feof(fp)){
-		char ip[24];
-		size_t len = freadline(fp, ip, 24);
-		if (len < 10) //Minimum length an IP should be, including newline and null byte.
-			break;
-
-		ip[len - 1] = 0; //Strip newline.
-		socket_ban(ip);
-	}
-
-	fclose(fp);
-}
-
 int socket_initialize()
 {
-	socket_loadbans();
-
 	if (socket_new(&srv_http, config->port_http))
 		return 1;
 
@@ -222,17 +156,6 @@ void socket_terminate()
 
 	pthread_cancel(http_listener);
 	pthread_join(http_listener, 0);
-
-	socket_writebans();
-
-	pthread_mutex_lock(&ban_lock);
-	struct lnode *cur = banned;
-	while (cur){
-		struct lnode *tmp = cur;
-		cur = cur->next;
-		free(tmp->data);
-		free(tmp);
-	}
 
 	close(srv_http.fd);
 }
@@ -267,27 +190,4 @@ void socket_write(struct client_ctx *cc, char *buf, ssize_t len)
 size_t socket_gets(struct client_ctx *cc, char *buf, size_t len)
 {
 	return read(cc->fd, buf, len);
-}
-
-void socket_ban(char *str)
-{
-	char *ip = calloc(strlen(str) + 1, 1);
-	struct lnode *n = calloc(sizeof(*n), 1);
-
-	strcpy(ip, str);
-	n->data = ip;
-	pthread_mutex_lock(&ban_lock);
-	banned = lnode_push(banned, n);
-	pthread_mutex_unlock(&ban_lock);
-}
-
-void socket_listbanned(struct client_ctx *cc)
-{
-	pthread_mutex_lock(&ban_lock);
-	for (struct lnode *cur = banned; cur; cur = cur->next){
-		char *ip = cur->data;
-		socket_puts(cc, ip);
-		socket_puts(cc, "\n");
-	}
-	pthread_mutex_unlock(&ban_lock);
 }

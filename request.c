@@ -72,20 +72,6 @@ void process_admincmd(struct client_ctx *cc)
 			return;
 		}
 		socket_puts(cc, "File removed from database\n");
-	}else if (strstr(cmd, "ban") == cmd){ //Ban IP.
-		char *ip = strchr(cmd, '=');
-		if (!ip){
-			socket_puts(cc, HTTP_200);
-			socket_puts(cc, err_inv);
-			return;
-		}
-		ip++;
-
-		socket_ban(ip);
-		socket_puts(cc, HTTP_200 "IP banned\n");
-	}else if (strstr(cmd, "listbans") == cmd){ //View bans.
-		socket_puts(cc, HTTP_200 "Banned IP's:\n");
-		socket_listbanned(cc);
 	}else{ //Print help.
 		socket_puts(cc,
 				HTTP_200
@@ -93,8 +79,6 @@ void process_admincmd(struct client_ctx *cc)
 				"stats - print database statistics\n"
 				"shutdown - gracefully terminate server\n"
 				"rm - remove file from database\n"
-				"ban - ban IP\n"
-				"listbans - list all IP bans\n"
 		);
 	}
 }

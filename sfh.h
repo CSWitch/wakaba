@@ -7,11 +7,12 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/un.h>
 #include <unistd.h>
 #include <string.h>
-#include <arpa/inet.h>
 #include <errno.h>
 #include <signal.h>
 #include <pthread.h>
@@ -45,6 +46,7 @@ struct config{
 	char db_persist;
 	char browser_cache;
 	char admin_pwd[128];
+	char unix_sock_path[128];
 };
 
 struct config *config;
@@ -79,7 +81,6 @@ struct thread_state{
 
 struct client_ctx{
 	int fd;
-	char str_addr[16];
 	struct thread_state *ts;
 	struct request *r;
 };

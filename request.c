@@ -29,12 +29,12 @@ void process_admincmd(struct client_ctx *cc)
 
 	if(strcmp(config->admin_pwd, pwd)){
 		socket_puts(cc, HTTP_200 "Access denied\n");
-		printf("\033[1m%s, \033[31m(admin)\033[0;1m:\033[0m %s: Incorrect password\n", strtime, cc->str_addr);
+		printf("\033[1m%s, \033[31m(admin)\033[0;1m:\033[0m Incorrect password\n", strtime);
 		return;
 	}
 	cmd = pwd_delim + 1;
 
-	printf("\033[1m%s, \033[31m(admin)\033[0;1m:\033[0m %s: \033[1mExecuted\033[0m command \"%s\"\n", strtime, cc->str_addr, cmd);
+	printf("\033[1m%s, \033[31m(admin)\033[0;1m:\033[0m \033[1mExecuted\033[0m command \"%s\"\n", strtime, cmd);
 
 	char *err_inv = "Invalid syntax\n";
 
@@ -93,7 +93,7 @@ void *process_request(void *p)
 	struct client_ctx *cc = p;
 	struct request r;
 
-	prctl(PR_SET_NAME, (char *) cc->str_addr, 0, 0, 0);
+	prctl(PR_SET_NAME, (char *) "Worker thread", 0, 0, 0);
 
 	memset(&r, 0, sizeof(r));
 	http_process_request(cc, &r);
@@ -134,7 +134,7 @@ void *process_request(void *p)
 			free(r.data);
 		}
 		else{
-			printf("\033[1m%s, (request):\033[0m %s: File of %zu bytes uploaded (%llx)\n", strtime, cc->str_addr, r.len, id);
+			printf("\033[1m%s, (request):\033[0m File of %zu bytes uploaded (%llx)\n", strtime, r.len, id);
 		}
 
 		gen_post_response(cc, buf, 128, id);
@@ -149,7 +149,7 @@ void *process_request(void *p)
 			goto RET;
 		}
 
-		printf("\033[1m%s, (request):\033[0m %s: File %s requested (ref: \033[1m%s\033[0m)\n", strtime, cc->str_addr, r.filename, r.referer[0] ? r.referer : "none");
+		printf("\033[1m%s, (request):\033[0m File %s requested (ref: \033[1m%s\033[0m)\n", strtime, r.filename, r.referer[0] ? r.referer : "none");
 
 		snprintf(http_header, 2048, "HTTP/1.0 200 OK\r\nContent-Length: %zu\r\nExpires: Sun, 17-jan-2038 19:14:07 GMT\r\n\r\n", r.len);
 		socket_puts(cc, http_header);
@@ -164,7 +164,7 @@ void *process_request(void *p)
 			goto RET;
 		}
 
-		printf("\033[1m%s, (request):\033[0m %s: Browser-cached file %s requested (ref: \033[1m%s\033[0m)\n", strtime, cc->str_addr, r.filename, r.referer[0] ? r.referer : "none");
+		printf("\033[1m%s, (request):\033[0m Browser-cached file %s requested (ref: \033[1m%s\033[0m)\n", strtime, r.filename, r.referer[0] ? r.referer : "none");
 
 		socket_puts(cc, http_header);
 	}

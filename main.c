@@ -6,14 +6,14 @@ static pthread_mutex_t cleaner_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t threadlist_lock = PTHREAD_MUTEX_INITIALIZER;
 
 static struct config conf = {
-	.port_http = 8080,
 	.max_file_size = 32000000, //32 MB
 	.max_cache_size = 512000000, //512 MB
-	.domainname = "wakaba.dhcp.io",
-	.username = "wakaba",
+	.domainname = "localhost",
+	.username = "http",
 	.db_persist = 0,
 	.browser_cache = 0,
-	.admin_pwd = ""
+	.admin_pwd = "",
+	.unix_sock_path = "/tmp/wakaba.sock",
 };
 
 void *cleaner()
@@ -119,9 +119,7 @@ int load_config()
 		if (!opt[0] || !val[0] || isspace(opt[0]) || opt[0] == '#')
 			continue;
 
-		if (!strcmp(opt, "port_http")){
-			config->port_http = (uint16_t) strtol(val, 0, 10);
-		}else if (!strcmp(opt, "max_file_size")){
+		if (!strcmp(opt, "max_file_size")){
 			config->max_file_size = (size_t) strtol(val, 0, 10);
 		}else if (!strcmp(opt, "max_cache_size")){
 			config->max_cache_size = (size_t) strtol(val, 0, 10);
@@ -135,6 +133,8 @@ int load_config()
 			config->browser_cache = (char) strtol(val, 0, 10);
 		}else if (!strcmp(opt, "admin_pwd")){
 			strncpy(config->admin_pwd, val, 128);
+		}else if (!strcmp(opt, "unix_sock_path")){
+			strncpy(config->unix_sock_path, val, 128);
 		}
 	}
 
@@ -150,15 +150,15 @@ int main()
 	config = &conf;
 	load_config();
 
-	if (socket_initialize()){
-		puts("\033[1;31mERROR:\033[0m Failed to initialize server");
-		return 1;
-	}
-
 	//Shrink user privileges
 	struct passwd *pw = getpwnam(config->username);
 	if (!pw || setuid(pw->pw_uid) == -1){
 		printf("\033[1;31mERROR:\033[0m Failed to set user to \"%s\"\n", config->username);
+		return 1;
+	}
+
+	if (socket_initialize()){
+		puts("\033[1;31mERROR:\033[0m Failed to initialize server");
 		return 1;
 	}
 

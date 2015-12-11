@@ -2,7 +2,7 @@
 
 struct socket{
 	int fd;
-	struct sockaddr_in addr;
+	struct sockaddr_un addr;
 };
 
 static struct socket srv_http;
@@ -15,14 +15,6 @@ static pthread_mutex_t avail_lock = PTHREAD_MUTEX_INITIALIZER;
 
 static struct lnode *client_queue;
 static size_t queue_size;
-
-void socket_clientaddr(struct client_ctx *cc)
-{
-	uint32_t addr = cli.addr.sin_addr.s_addr;
-
-	memset(cc->str_addr, 0, 16);
-	inet_ntop(AF_INET, &addr, cc->str_addr, 16);
-}
 
 void socket_close(struct client_ctx *cc)
 {
@@ -37,7 +29,7 @@ void socket_puts(struct client_ctx *cc, char *str)
 
 struct client_ctx *socket_listen(struct socket *s)
 {
-	socklen_t len = sizeof(struct sockaddr_in);
+	socklen_t len = sizeof(struct sockaddr_un);
 	int fd = accept(s->fd, (struct sockaddr *) &cli.addr, &len);
 	if (fd == -1)
 		return 0;
@@ -45,7 +37,6 @@ struct client_ctx *socket_listen(struct socket *s)
 	struct client_ctx *cc = calloc(sizeof(*cc), 1);
 
 	cc->fd = fd;
-	socket_clientaddr(cc);
 	
 	return cc;
 }
@@ -104,20 +95,15 @@ void *socket_http_listener()
 	pthread_exit(0);
 }
 
-int socket_new(struct socket *s, uint16_t port)
+int socket_new(struct socket *s, char *path)
 {
 	memset(&s->addr, 0, sizeof(s->addr));
 
-	s->addr.sin_family = AF_INET;
-	s->addr.sin_addr.s_addr = INADDR_ANY;
-	s->addr.sin_port = htons(port);
+	s->addr.sun_family = AF_UNIX;
+	strcpy(s->addr.sun_path, path);
 
-	s->fd = socket(AF_INET, SOCK_STREAM, 0);
-	if (s->fd == -1)
-		return 1;
-
-	int optval = 1;
-	setsockopt(s->fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
+	s->fd = socket(AF_UNIX, SOCK_STREAM, 0);
+	if (s->fd == -1) return 1;
 
 	if (bind(s->fd, (struct sockaddr *) &s->addr, sizeof(s->addr)) == -1)
 		return 1;
@@ -130,7 +116,7 @@ int socket_new(struct socket *s, uint16_t port)
 
 int socket_initialize()
 {
-	if (socket_new(&srv_http, config->port_http))
+	if (socket_new(&srv_http, config->unix_sock_path))
 		return 1;
 
 	pthread_create(&http_listener, 0, socket_http_listener, 0);
@@ -145,7 +131,7 @@ struct client_ctx *socket_nextclient()
 	char strtime[512];
 	time_t t = time(0);
 	strftime(strtime, 512, TIME_FORMAT, localtime(&t));
-	printf("\033[1m%s, (socket):\033[0m Got connection from %s\n", strtime, cc->str_addr);
+	printf("\033[1m%s, (socket):\033[0m Got connection\n", strtime);
 
 	return cc;
 }
@@ -158,6 +144,7 @@ void socket_terminate()
 	pthread_join(http_listener, 0);
 
 	close(srv_http.fd);
+	unlink(config->unix_sock_path);
 }
 
 size_t socket_read(struct client_ctx *cc, char *buf, size_t len)

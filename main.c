@@ -7,15 +7,12 @@ static pthread_mutex_t threadlist_lock = PTHREAD_MUTEX_INITIALIZER;
 
 static struct config conf = {
 	.port_http = 8080,
-	.port_https = 4433,
 	.max_file_size = 32000000, //32 MB
 	.max_cache_size = 512000000, //512 MB
 	.domainname = "wakaba.dhcp.io",
 	.username = "wakaba",
 	.db_persist = 0,
 	.browser_cache = 0,
-	.ssl_cert = "server.crt",
-	.ssl_pkey = "server.key",
 	.admin_pwd = ""
 };
 
@@ -125,8 +122,6 @@ int load_config()
 
 		if (!strcmp(opt, "port_http")){
 			config->port_http = (uint16_t) strtol(val, 0, 10);
-		}else if (!strcmp(opt, "port_https")){
-			config->port_https = (uint16_t) strtol(val, 0, 10);
 		}else if (!strcmp(opt, "max_file_size")){
 			config->max_file_size = (size_t) strtol(val, 0, 10);
 		}else if (!strcmp(opt, "max_cache_size")){
@@ -139,10 +134,6 @@ int load_config()
 			config->db_persist = (char) strtol(val, 0, 10);
 		}else if (!strcmp(opt, "browser_cache")){
 			config->browser_cache = (char) strtol(val, 0, 10);
-		}else if (!strcmp(opt, "ssl_cert")){
-			strncpy(config->ssl_cert, val, 128);
-		}else if (!strcmp(opt, "ssl_pkey")){
-			strncpy(config->ssl_pkey, val, 128);
 		}else if (!strcmp(opt, "admin_pwd")){
 			strncpy(config->admin_pwd, val, 128);
 		}

@@ -18,8 +18,6 @@
 #include <sys/stat.h>
 #include <pwd.h>
 #include <ctype.h>
-#include <openssl/ssl.h>
-#include <openssl/err.h>
 #include <openssl/sha.h>
 #include <sys/statvfs.h>
 #include <time.h>
@@ -40,15 +38,12 @@
 
 struct config{
 	uint16_t port_http;
-	uint16_t port_https;
 	size_t max_file_size;
 	size_t max_cache_size;
 	char domainname[128];
 	char username[128];
 	char db_persist;
 	char browser_cache;
-	char ssl_cert[128];
-	char ssl_pkey[128];
 	char admin_pwd[128];
 };
 
@@ -86,7 +81,6 @@ struct client_ctx{
 	int fd;
 	char str_addr[16];
 	struct thread_state *ts;
-	SSL *ssl;
 	struct request *r;
 };
 

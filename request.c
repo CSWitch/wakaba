@@ -186,7 +186,6 @@ void *process_request(void *p)
 	}
 
 RET:
-	ERR_remove_state(0);
 	socket_close(cc);
 	cc->ts->terminated = 1;
 	free(cc);

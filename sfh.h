@@ -27,7 +27,7 @@
 #include <execinfo.h>
 #include <assert.h>
 
-#define SERVER_BACKLOG 1
+#define SERVER_BACKLOG 1024
 #define PACKET_SIZE 8192
 #define DATA_DIR "/var/lib/wakaba/"
 #define CONF_DIR "/etc/wakaba/"

@@ -8,14 +8,6 @@ struct socket{
 static struct socket srv_http;
 static struct socket cli;
 
-static pthread_t http_listener;
-
-static pthread_cond_t avail_cond = PTHREAD_COND_INITIALIZER;
-static pthread_mutex_t avail_lock = PTHREAD_MUTEX_INITIALIZER;
-
-static struct lnode *client_queue;
-static size_t queue_size;
-
 void socket_close(struct client_ctx *cc)
 {
 	shutdown(cc->fd, SHUT_RDWR);
@@ -39,60 +31,6 @@ struct client_ctx *socket_listen(struct socket *s)
 	cc->fd = fd;
 	
 	return cc;
-}
-
-void queue_push(struct lnode *n, struct client_ctx *cc)
-{
-	if (queue_size >= SERVER_BACKLOG){
-		socket_puts(cc, HTTP_200 "Server too overloaded\n");
-		free(cc);
-		free(n);
-		return;
-	}
-
-	pthread_mutex_lock(&avail_lock);
-
-	n->data = cc;
-	client_queue = lnode_push(client_queue, n);
-	queue_size++;
-	pthread_cond_signal(&avail_cond);
-
-	pthread_mutex_unlock(&avail_lock);
-}
-
-struct client_ctx *queue_pop()
-{
-	pthread_mutex_lock(&avail_lock);
-
-	if (!client_queue)
-		pthread_cond_wait(&avail_cond, &avail_lock);
-
-	struct lnode *n = lnode_pop(listend(client_queue));
-	struct client_ctx *cc = n->data;
-	queue_size--;
-	free(n);
-
-	if (n == client_queue)
-		client_queue = 0;
-
-	pthread_mutex_unlock(&avail_lock);
-
-	return cc;
-}
-
-void *socket_http_listener()
-{
-	prctl(PR_SET_NAME, (char *)"HTTP", 0, 0, 0);
-
-	while (1){
-		struct client_ctx *cc = socket_listen(&srv_http);
-		if (!cc) continue;
-		struct lnode *n = calloc(sizeof(*n), 1);
-
-		queue_push(n, cc);
-	}
-
-	pthread_exit(0);
 }
 
 int socket_new(struct socket *s, char *path)
@@ -119,14 +57,12 @@ int socket_initialize()
 	if (socket_new(&srv_http, config->unix_sock_path))
 		return 1;
 
-	pthread_create(&http_listener, 0, socket_http_listener, 0);
-
 	return 0;
 }
 
 struct client_ctx *socket_nextclient()
 {
-	struct client_ctx *cc = queue_pop();
+	struct client_ctx *cc = socket_listen(&srv_http);
 
 	char strtime[512];
 	time_t t = time(0);
@@ -138,11 +74,6 @@ struct client_ctx *socket_nextclient()
 
 void socket_terminate()
 {
-	pthread_mutex_lock(&avail_lock);
-
-	pthread_cancel(http_listener);
-	pthread_join(http_listener, 0);
-
 	close(srv_http.fd);
 	unlink(config->unix_sock_path);
 }

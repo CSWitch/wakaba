@@ -48,7 +48,7 @@ struct config{
 	char unix_sock_path[128];
 };
 
-struct config *config;
+static struct config *config;
 
 enum request_type{
 	R_INVALID,
